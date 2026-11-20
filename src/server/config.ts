@@ -15,6 +15,8 @@ const isProduction = env.NODE_ENV === "production";
 
 export type StorageKind = "local" | "r2";
 
+const storage = storageKind();
+
 /**
  * Only the two exact spellings are accepted. A typo must not quietly select
  * local storage, which on Vercel would write to the function's disk and lose
@@ -30,10 +32,19 @@ export const config = {
   /** Public base URL, e.g. https://lostandfound.miralomasf.com */
   appUrl: (env.APP_URL ?? "http://localhost:3000").replace(/\/$/, ""),
   /** "local" writes to ./.data; "r2" uses the Cloudflare R2 bucket. */
-  storage: storageKind(),
+  storage,
   /** Shown to people who need a person: "Questions? Email …". */
   contactEmail: env.CONTACT_EMAIL ?? "lostandfound@miralomasf.com",
   localDataDir: env.LOCAL_DATA_DIR ?? ".data",
+  /** How long a read of a JSON file is reused. This server's own writes refresh it at once. */
+  docCacheMs: 3000,
+  /**
+   * The first admin code, copied to settings.json when it has none.
+   * Development with local storage gets a default so the admin pages can be
+   * tried without setup. Never with R2: the default is printed in the README,
+   * and it must not end up as the real bucket's admin code.
+   */
+  initialAdminCode: env.INITIAL_ADMIN_CODE || (!isProduction && storage === "local" ? "local admin code" : null),
   timeZone: "America/Los_Angeles",
   isProduction,
 };

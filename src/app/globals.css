@@ -44,3 +44,34 @@
     color: var(--color-brand-dark);
   }
 }
+
+@utility card {
+  @apply rounded-2xl border border-line bg-white;
+}
+@utility field {
+  @apply block h-13 w-full rounded-xl border-[1.5px] border-field bg-white px-3.5 text-base text-ink focus:border-brand focus:ring-2 focus:ring-brand-soft focus:outline-none;
+}
+@utility label {
+  @apply block text-[15px] font-bold text-ink;
+}
+@utility hint {
+  @apply text-[13px] leading-snug text-muted;
+}
+@utility btn {
+  @apply inline-flex h-13 cursor-pointer items-center justify-center gap-2 rounded-xl px-5 text-[17px] font-bold no-underline transition disabled:cursor-not-allowed disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-brand text-white hover:bg-brand-dark hover:text-white;
+}
+@utility btn-secondary {
+  @apply btn border border-field bg-white text-ink hover:bg-page hover:text-ink;
+}
+@utility btn-small {
+  @apply h-11 px-3.5 text-[15px];
+}
+@utility notice {
+  @apply flex gap-2.5 rounded-xl px-3.5 py-3 text-sm leading-snug font-semibold;
+}
+@utility admin-badge {
+  @apply rounded-full bg-admin px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-ink uppercase;
+}
