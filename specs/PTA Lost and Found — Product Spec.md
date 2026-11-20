@@ -53,7 +53,7 @@ There are two roles. There is no helper role: anyone with the school code can ad
 **Everyone: a school code, no sign-in.**
 
 - The first visit asks for the school code: a short word printed in the newsletter and on a sign at the bin (open question 9). After that the phone is remembered and opens straight to the grid. Admins can type the admin code in the same box (below).
-- The phone is remembered by a random ID in a cookie that lasts a year (open question 1). Nothing else is stored about the person until they claim or add something.
+- The phone is remembered by a random ID in a cookie that lasts a year from the phone's last visit (open question 1). Nothing else is stored about the person until they claim or add something.
 - The first claim or the first add asks for a name for admins to see next to it, such as "Lee family, Rm 12". The phone remembers it, and it can be changed in *My items*.
 - *My items* belongs to the phone. A different phone, or clearing the browser, starts a new list, and earlier claims still stand.
 - When an admin changes the school code, for example at the start of the school year or if it spreads beyond the school, every phone is asked for the new one. Each phone keeps its ID, name and *My items*.
@@ -65,7 +65,7 @@ There are two roles. There is no helper role: anyone with the school code can ad
 - If the phone has no name yet, it asks for one, so the admin pages and the activity log can say who did what ("Done by Dana").
 - A phone stays an admin until an admin changes the admin code, or until its cookie expires or the browser is cleared. *Leave admin* on Settings turns that phone back into an ordinary one.
 - There is no list of admins and no way to remove a single phone. To take access away, an admin changes the admin code and gives the new one to the admins who should keep it. Every other admin phone becomes an ordinary phone within a few seconds, keeping its name and *My items*.
-- Wrong admin codes count toward the same slowdown as wrong school codes. The admin code is longer than the school code, such as three random words (open question 14).
+- Wrong admin codes count toward the same slowdown as wrong school codes. Because a script can ignore that browser cookie, each server also counts wrong codes per network address (20 in 15 minutes), and the admin code has to be hard to guess: at least three words of three or more letters, 15 characters in all, such as three random words (open question 14).
 - Settings shows the admin code to admins, so an admin can pass it on to a new one.
 
 There are no user lists. Each phone has its own small file, which also records whether it holds the current admin code (see *Storage layout*).
@@ -249,7 +249,7 @@ The same web app setup as asset-manager, but the data lives in a storage bucket 
 - **Storage:** one Cloudflare R2 bucket holds everything: a few small JSON files with the item details, and the photos. The app uses R2's S3 interface (the AWS SDK's S3 client pointed at R2), so it could move to Amazon S3 later without code changes. R2 rather than S3 because R2's free tier doesn't expire and downloads are free.
 - **Adapters:** `STORAGE=local` keeps the same files under `./.data` for development. `STORAGE=r2` uses the bucket. A production build refuses to run with local storage.
 - **No email and no scheduled job:** admins use a code instead of emailed links, so unlike asset-manager and reimburse-me there is no Gmail API or service account. The clear-out is a button, so nothing runs on a timer.
-- **Phones:** a random ID in an HttpOnly cookie, plus a second cookie recording which school code was entered. Both are set by the server rather than by page scripts, because some browsers expire script-set cookies after a week. A phone's own file is rewritten at most once a day to update `last_seen_at`. A phone is an admin while its file's `admin_code_at` matches `admin_code_changed_at` in `settings.json`. The cookie carries only the phone's random ID, so editing it can't make a phone an admin.
+- **Phones:** a random ID in an HttpOnly cookie, plus a second cookie recording which school code was entered. Both are set by the server rather than by page scripts, because some browsers expire script-set cookies after a week, and each page visit renews them for another year. In production their names start with `__Host-`, so a page on another miralomasf.com subdomain can't plant one. A phone's own file is rewritten at most once a day to update `last_seen_at`. A phone is an admin while its file's `admin_code_at` matches `admin_code_changed_at` in `settings.json`. The cookie carries only the phone's random ID, so editing it can't make a phone an admin.
 - **Live camera:** bulk add uses the browser's camera API (`getUserMedia`) with the rear camera, and grabs a still frame from the video. It needs HTTPS, which Vercel provides. The phone's own camera app, through a file input, is the fallback.
 - **Auto-crop:** runs in the browser on a canvas before upload. It samples the color along the photo's edges, moves each edge inward until it reaches pixels that differ from that color, and adds a margin. It uses no model and costs nothing, and only the cropped photo is uploaded.
 - **Manual crop:** *Add one from a photo* draws the photo on a canvas with a square crop box over it. Pointer events move the box, and a pinch or a corner handle resizes it, kept inside the photo. Only the cropped photo is uploaded.
@@ -406,7 +406,7 @@ Each has a proposed default, and the build follows the default unless it is chan
 11. **Backdrop for the photo spot.** Default: a solid lime-green poster board or mat, a color kids' things rarely come in. Items the same color as the backdrop keep the square photo.
 12. **Bulk add on small phones.** With 11 types and 15 colors, the bulk add screen fills an 844 px-tall phone with no room to spare, and admins can add more of either. Default: the type chips scroll sideways in one row when they don't fit, and the colors list stays at 16 or fewer.
 13. **Adding something that isn't in the bin yet.** Default: both add screens say "Only add things that are in the lost-and-found bin", with no checkbox or other confirmation.
-14. **The admin code.** Default: three random words, long enough that it can't be guessed a few tries at a time. Admins see it on Settings, and it changes whenever someone who has it steps down and at the start of each school year.
+14. **The admin code.** The app requires at least three words of three or more letters (15+ characters). Default: three random words. Admins see it on Settings, and it changes whenever someone who has it steps down and at the start of each school year.
 15. **Who reads lostandfound@.** Default: its mail forwards to everyone who has the admin code, and whoever replies first handles it. The forwarding list is updated whenever the admin code changes.
 
 ## Changes since v0.2

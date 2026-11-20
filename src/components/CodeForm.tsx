@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { enterCodeAction } from "@/app/actions/codes";
+import { SubmitButton } from "@/components/SubmitButton";
 import { NO_STATE } from "@/lib/form-state";
 
 /**
@@ -11,6 +12,7 @@ import { NO_STATE } from "@/lib/form-state";
 export function CodeForm({ mode, askName = false, next }: { mode: "school" | "admin"; askName?: boolean; next?: string }) {
   const [state, run, pending] = useActionState(enterCodeAction, NO_STATE);
   const admin = mode === "admin";
+  const describedBy = (hint: string) => (state.error ? `${hint} code-error` : hint);
   return (
     <form action={run} className="card flex flex-col gap-4 p-5">
       {admin && <input type="hidden" name="want" value="admin" />}
@@ -19,17 +21,20 @@ export function CodeForm({ mode, askName = false, next }: { mode: "school" | "ad
         <label htmlFor="code" className="label">
           {admin ? "Admin code" : "School code"}
         </label>
+        {/* Keyed by attempt so the typed value comes back after React resets the form. */}
         <input
+          key={`code-${state.attempt ?? 0}`}
           id="code"
           name="code"
           type={admin ? "password" : "text"}
           required
+          defaultValue={state.values?.code}
           autoComplete="off"
           autoCapitalize="none"
           spellCheck={false}
           placeholder={admin ? "Three words" : "Enter the code"}
           className="field text-lg font-semibold"
-          aria-describedby="code-hint"
+          aria-describedby={describedBy("code-hint")}
           aria-invalid={state.error ? true : undefined}
         />
         <p id="code-hint" className="hint">
@@ -41,20 +46,31 @@ export function CodeForm({ mode, askName = false, next }: { mode: "school" | "ad
           <label htmlFor="name" className="label">
             Your name
           </label>
-          <input id="name" name="name" required maxLength={60} autoComplete="name" placeholder="e.g. Dana K." className="field" aria-describedby="name-hint" />
+          <input
+            key={`name-${state.attempt ?? 0}`}
+            id="name"
+            name="name"
+            required
+            maxLength={60}
+            defaultValue={state.values?.name}
+            autoComplete="name"
+            placeholder="e.g. Dana K."
+            className="field"
+            aria-describedby="name-hint"
+          />
           <p id="name-hint" className="hint">
             This phone doesn&apos;t have a name yet. Other admins see it next to what you do.
           </p>
         </div>
       )}
       {state.error && (
-        <p key={state.attempt} role="alert" className="text-sm font-semibold text-bad">
+        <p id="code-error" key={state.attempt} role="alert" className="text-sm font-semibold text-bad">
           {state.error}
         </p>
       )}
-      <button type="submit" className="btn-primary" disabled={pending}>
+      <SubmitButton pending={pending} className="btn-primary">
         {pending ? "Checking…" : "Continue"}
-      </button>
+      </SubmitButton>
     </form>
   );
 }

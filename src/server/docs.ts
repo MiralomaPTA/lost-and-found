@@ -40,10 +40,15 @@ export class Docs {
     private clock: () => number = Date.now,
   ) {}
 
-  /** The file's current value, or null when it doesn't exist. Treat the value as read-only. */
-  async read<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
+  /**
+   * The file's current value, or null when it doesn't exist. Treat the value
+   * as read-only. With `fresh`, skip the cache: for a file only one phone
+   * changes, where a few-second-old copy on another server instance would
+   * show that phone stale data right after its own change.
+   */
+  async read<T>(key: string, schema: z.ZodType<T>, { fresh = false }: { fresh?: boolean } = {}): Promise<T | null> {
     const hit = this.cache.get(key);
-    if (hit && this.cacheMs > 0 && this.clock() - hit.at < this.cacheMs) return hit.value as T;
+    if (!fresh && hit && this.cacheMs > 0 && this.clock() - hit.at < this.cacheMs) return hit.value as T;
     return (await this.readFresh(key, schema))?.value ?? null;
   }
 

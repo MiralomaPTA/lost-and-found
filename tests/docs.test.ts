@@ -35,7 +35,7 @@ describe("Docs", () => {
   it("gives up after five lost races", async () => {
     const base = memoryObjectStore();
     await new Docs(base, 0).update("counter.json", loose, () => ({ value: { count: 1 }, result: null }));
-    const store = racingStore(base, "counter.json", 99);
+    const store = racingStore(base, "counter.json", 99, '{"rival":true}');
     await expect(new Docs(store, 0).update("counter.json", loose, () => ({ value: { count: 2 }, result: null }))).rejects.toBeInstanceOf(ConflictError);
     expect(store.puts()).toBe(5);
   });
@@ -54,7 +54,7 @@ describe("Docs", () => {
     expect(await docs.read("counter.json", counter)).toBeNull();
   });
 
-  it("reuses a read for the cache window, and its own writes refresh it", async () => {
+  it("reuses a read for the cache window", async () => {
     let clock = 0;
     const base = memoryObjectStore();
     const docs = new Docs(base, 3000, () => clock);
@@ -64,5 +64,26 @@ describe("Docs", () => {
     expect(await docs.read("counter.json", counter)).toEqual({ count: 1 });
     clock = 3001;
     expect(await docs.read("counter.json", counter)).toEqual({ count: 5 });
+  });
+
+  it("replaces a stale cached copy with its own write", async () => {
+    const base = memoryObjectStore();
+    await base.put("counter.json", new TextEncoder().encode('{"count":1}'));
+    const docs = new Docs(base, 3000, () => 0);
+    expect(await docs.read("counter.json", counter)).toEqual({ count: 1 });
+    // Another instance moves it to 5; our cache still says 1.
+    await base.put("counter.json", new TextEncoder().encode('{"count":5}'));
+    // Our update reads fresh, so it builds on 5, and the cache now holds the result.
+    await docs.update("counter.json", counter, (current) => ({ value: { count: (current?.count ?? 0) + 1 }, result: null }));
+    expect(await docs.read("counter.json", counter)).toEqual({ count: 6 });
+  });
+
+  it("skips the cache when asked for a fresh read", async () => {
+    const base = memoryObjectStore();
+    const docs = new Docs(base, 3000, () => 0);
+    await docs.update("counter.json", counter, () => ({ value: { count: 1 }, result: null }));
+    await base.put("counter.json", new TextEncoder().encode('{"count":5}'));
+    expect(await docs.read("counter.json", counter)).toEqual({ count: 1 });
+    expect(await docs.read("counter.json", counter, { fresh: true })).toEqual({ count: 5 });
   });
 });

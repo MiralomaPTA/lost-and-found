@@ -1,29 +1,12 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { cache } from "react";
 import { formatTries, parseTries, type Tries } from "@/server/codes";
-import { config } from "@/server/config";
-import { getDeps } from "@/server/deps";
+import { CODE_COOKIE, cookieOptions, PHONE_COOKIE, TRIES_COOKIE } from "@/server/cookies";
+import { getDeps, type Deps } from "@/server/deps";
 import { getDevice, hasSchoolCode, isAdminDevice, isPhoneId, newPhoneId, schoolCodeProof, touchDevice, type Device } from "@/server/phones";
 import { loadSettings, type Settings } from "@/server/settings";
-
-/** The phone's random ID. HttpOnly and set by the server, so browsers keep it the full year. */
-const PHONE_COOKIE = "lf_phone";
-/** Proof that this phone entered the current school code. */
-const CODE_COOKIE = "lf_code";
-/** Wrong codes in a row, for the one-minute wait. */
-const TRIES_COOKIE = "lf_tries";
-
-const YEAR_SECONDS = 365 * 24 * 60 * 60;
-
-const cookieOptions = {
-  httpOnly: true,
-  sameSite: "lax" as const,
-  secure: config.isProduction,
-  path: "/",
-  maxAge: YEAR_SECONDS,
-};
 
 export interface Visitor {
   settings: Settings;
@@ -56,31 +39,38 @@ export const getVisitor = cache(async (): Promise<Visitor> => {
 
 export type AdminVisitor = Visitor & { phoneId: string; device: Device };
 
-function asAdmin(visitor: Visitor): AdminVisitor | null {
+/** The visitor if this phone is an admin, otherwise null. */
+export async function currentAdmin(): Promise<AdminVisitor | null> {
+  const visitor = await getVisitor();
   return visitor.isAdmin && visitor.phoneId && visitor.device ? (visitor as AdminVisitor) : null;
 }
 
 /** For admin pages: the admin, or a redirect to the admin code page. */
 export async function requireAdmin(): Promise<AdminVisitor> {
-  const admin = asAdmin(await getVisitor());
+  const admin = await currentAdmin();
   if (!admin) redirect("/admin-code");
   return admin;
 }
 
-/** For admin server actions: a stale form can't usefully redirect, so this throws. */
-export async function actionAdmin(): Promise<AdminVisitor> {
-  const admin = asAdmin(await getVisitor());
-  if (!admin) throw new Error("This phone isn't an admin any more. The admin code may have changed; enter the new one.");
-  return admin;
+/** The address a request came from, for counting wrong codes. Vercel sets x-forwarded-for. */
+export async function clientAddress(): Promise<string> {
+  const h = await headers();
+  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
 }
 
 // --- Cookie writers. Server actions only: cookies can't be set while a page renders. ---
 
-/** This phone's ID, given a new one (and its cookie) if it has none. */
-export async function ensurePhoneId(): Promise<string> {
+/**
+ * This phone's ID, or a new one (with its cookie) if it has none.
+ *
+ * With `onlyIfKnown`, an ID that has no file behind it is replaced too. The
+ * admin code uses this, so it's only ever granted to an ID this app handed out
+ * and recorded, never to one someone planted in the browser beforehand.
+ */
+export async function ensurePhoneId(deps: Deps, { onlyIfKnown = false }: { onlyIfKnown?: boolean } = {}): Promise<string> {
   const jar = await cookies();
   const raw = jar.get(PHONE_COOKIE)?.value;
-  if (isPhoneId(raw)) return raw;
+  if (isPhoneId(raw) && (!onlyIfKnown || (await getDevice(deps, raw)))) return raw;
   const id = newPhoneId();
   jar.set(PHONE_COOKIE, id, cookieOptions);
   return id;
@@ -89,7 +79,7 @@ export async function ensurePhoneId(): Promise<string> {
 /** Marks this phone as having the current school code, if there is one. */
 export async function rememberSchoolCode(phoneId: string, settings: Settings): Promise<void> {
   if (!settings.school_code) return;
-  (await cookies()).set(CODE_COOKIE, schoolCodeProof(phoneId, settings.school_code), cookieOptions);
+  (await cookies()).set(CODE_COOKIE, schoolCodeProof(phoneId, settings), cookieOptions);
 }
 
 export async function readTries(): Promise<Tries> {

@@ -15,7 +15,7 @@ npm run dev          # http://localhost:3000
 
 No Cloudflare setup is needed for development. With the default `STORAGE=local`, the bucket is the folder `.data/bucket/`, with the same file names R2 will have.
 
-The first visit asks for a code. In development the admin code is `local admin code` unless `INITIAL_ADMIN_CODE` is set in `.env.local`. Type it in the code box, give the phone a name, then set a school code on Settings and try it in a private window. Delete `.data/` to start over.
+The first visit asks for a code. In development with local storage, the admin code is `local admin code` unless `INITIAL_ADMIN_CODE` is set in `.env.local` (with `STORAGE=r2` there is no default, so it can't end up in the real bucket). Type it in the code box, give the phone a name, then set a school code on Settings and try it in a private window. Delete `.data/` to start over.
 
 ```bash
 npm test             # unit tests (vitest)
@@ -36,7 +36,7 @@ Copy `.env.example` to `.env.local`.
 | `APP_URL` | Public base URL, e.g. `https://lostandfound.miralomasf.com` |
 | `STORAGE` | `local` (default) or `r2` |
 | `CONTACT_EMAIL` | The address shown for questions; defaults to `lostandfound@miralomasf.com` |
-| `INITIAL_ADMIN_CODE` | The first admin code (12+ characters; three random words work well). Copied into `settings.json` when it has no admin code, so it can be set after the first deploy. After that, admins change it on Settings and this is ignored. Development defaults to `local admin code` |
+| `INITIAL_ADMIN_CODE` | The first admin code: at least three words of three or more letters, 15+ characters (three random words work well). Copied into `settings.json` when it has no admin code, so it can be set after the first deploy. After that, admins change it on Settings and this is ignored. Development with local storage defaults to `local admin code` |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` | The Cloudflare account and the bucket-only API token |
 | `R2_BUCKET` | Defaults to `miraloma-pta-lost-and-found` |
 | `ALLOW_LOCAL_STORAGE_IN_PRODUCTION` | `1` only to try a production build on a laptop with `STORAGE=local` |
@@ -55,5 +55,5 @@ One-time steps, mostly in other people's dashboards. The spec's *Rollout plan* h
    - Create a Hobby account and import `MiralomaPTA/lost-and-found`. An owner of the MiralomaPTA GitHub organization may need to approve Vercel's GitHub app.
    - Set `STORAGE=r2`, the four `R2_*` values, `APP_URL=https://lostandfound.miralomasf.com`, `CONTACT_EMAIL` and `INITIAL_ADMIN_CODE`.
    - Add the domain `lostandfound.miralomasf.com`, then add the CNAME record Vercel shows wherever miralomasf.com's DNS is managed.
-5. **Codes.** Pick the first school code (a short word for the newsletter and the sign at the bin) and the first admin code (three random words, for admins only). The admin code goes in `INITIAL_ADMIN_CODE`. Then open the site, type the admin code in the code box, and set the school code on Settings; until then only admins can get in.
+5. **Codes.** Pick the first school code (a short word for the newsletter and the sign at the bin) and the first admin code (three random words, for admins only; the app refuses anything shorter than three words of three or more letters). The admin code goes in `INITIAL_ADMIN_CODE`. Then open the site, type the admin code in the code box, and set the school code on Settings; until then only admins can get in.
 6. **Photo spot.** Set up a spot by the bin with good light and a plain lime-green poster board as the backdrop (spec open question 11).

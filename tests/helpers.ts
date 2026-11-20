@@ -20,9 +20,15 @@ export function testDeps({ initialAdminCode = "maple otter river", start = "2026
  * A bucket where someone else writes `key` just before each of our next
  * `times` writes to it, so our conditional write loses the race.
  */
-export function racingStore(inner: ObjectStore, key: string, times: number, rivalBody = '{"rival":true}'): ObjectStore & { puts: () => number } {
+export function racingStore(
+  inner: ObjectStore,
+  key: string,
+  times: number,
+  rivalBody?: string,
+): ObjectStore & { puts: () => number; saved: () => number; arm: (times: number) => void } {
   let left = times;
   let puts = 0;
+  let saved = 0;
   return {
     ...inner,
     async put(k, body, options) {
@@ -30,11 +36,22 @@ export function racingStore(inner: ObjectStore, key: string, times: number, riva
         puts++;
         if (left > 0) {
           left--;
-          await inner.put(k, new TextEncoder().encode(rivalBody));
+          // By default the rival writes back what's there, which still changes the ETag.
+          const rival = rivalBody !== undefined ? new TextEncoder().encode(rivalBody) : ((await inner.get(k))?.body ?? new TextEncoder().encode("{}"));
+          await inner.put(k, rival);
         }
       }
-      return inner.put(k, body, options);
+      const result = await inner.put(k, body, options);
+      if (k === key && result.ok) saved++;
+      return result;
     },
+    /** Our writes to the key, including ones that lost. */
     puts: () => puts,
+    /** Our writes to the key that succeeded. */
+    saved: () => saved,
+    /** Make the rival win our next `times` writes. */
+    arm(times: number) {
+      left = times;
+    },
   };
 }

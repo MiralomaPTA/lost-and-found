@@ -25,7 +25,12 @@ export function matchCode(codes: { school_code: string | null; admin_code: strin
 }
 
 export const SCHOOL_CODE_LENGTH = { min: 3, max: 40 };
-export const ADMIN_CODE_LENGTH = { min: 12, max: 80 };
+/**
+ * The admin code is the real lock, so it has to be long enough that a script
+ * can't guess it: at least three words of three or more letters, and 15
+ * characters in all. Three random words pass; "miraloma pta" doesn't.
+ */
+export const ADMIN_CODE_RULES = { minWords: 3, minWordLength: 3, minLength: 15, maxLength: 80 };
 
 /** Null when the new school code is fine, otherwise what to tell the admin. */
 export function schoolCodeProblem(code: string, adminCode: string | null): string | null {
@@ -39,10 +44,15 @@ export function schoolCodeProblem(code: string, adminCode: string | null): strin
 /** Null when the new admin code is fine, otherwise what to tell the admin. */
 export function adminCodeProblem(code: string, schoolCode: string | null): string | null {
   const normalized = normalizeCode(code);
-  if (normalized.length < ADMIN_CODE_LENGTH.min) {
-    return `The admin code needs at least ${ADMIN_CODE_LENGTH.min} characters, so it can't be guessed. Three random words work well.`;
+  const words = normalized.split(" ");
+  if (
+    words.length < ADMIN_CODE_RULES.minWords ||
+    words.some((word) => word.length < ADMIN_CODE_RULES.minWordLength) ||
+    normalized.length < ADMIN_CODE_RULES.minLength
+  ) {
+    return `Use at least ${ADMIN_CODE_RULES.minWords} words of ${ADMIN_CODE_RULES.minWordLength} or more letters (${ADMIN_CODE_RULES.minLength}+ characters in all), such as three random words. Shorter codes can be guessed.`;
   }
-  if (normalized.length > ADMIN_CODE_LENGTH.max) return `Keep the admin code under ${ADMIN_CODE_LENGTH.max} characters.`;
+  if (normalized.length > ADMIN_CODE_RULES.maxLength) return `Keep the admin code under ${ADMIN_CODE_RULES.maxLength} characters.`;
   if (schoolCode && sameCode(normalized, schoolCode)) return "The admin code can't be the same as the school code.";
   return null;
 }

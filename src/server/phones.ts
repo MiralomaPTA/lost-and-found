@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { normalizeCode } from "@/server/codes";
+import { HEX32 } from "@/server/cookies";
 import type { Deps } from "@/server/deps";
 import type { Settings } from "@/server/settings";
 
@@ -8,12 +9,13 @@ import type { Settings } from "@/server/settings";
  * A phone is a random ID in a cookie. It gets a file, devices/<id>.json, only
  * once it has something to remember: a name (first claim or add) or the admin
  * code. Nothing else is stored about anyone (spec: *Everyone*).
+ *
+ * The ID works like a password for the phone, so it never leaves the server:
+ * admins see a short code derived from it, never the ID itself.
  */
 
-const PHONE_ID = /^[0-9a-f]{32}$/;
-
 export const deviceSchema = z.object({
-  id: z.string().regex(PHONE_ID),
+  id: z.string().regex(HEX32),
   /** What admins see next to this phone's claims and adds, e.g. "Lee family, Rm 12". */
   name: z.string().max(60).nullable(),
   created_at: z.string(),
@@ -31,7 +33,7 @@ export function newPhoneId(): string {
 }
 
 export function isPhoneId(value: string | undefined | null): value is string {
-  return typeof value === "string" && PHONE_ID.test(value);
+  return typeof value === "string" && HEX32.test(value);
 }
 
 export function deviceKey(id: string): string {
@@ -41,16 +43,21 @@ export function deviceKey(id: string): string {
 
 /**
  * The value of the cookie that says this phone entered the current school
- * code. It can't be made without knowing the code, and it stops matching as
- * soon as an admin changes the code.
+ * code. It can't be made without knowing the code. It stops matching when an
+ * admin changes the code, and stays stopped even if they later go back to an
+ * old one, because it includes when the code was set.
  */
-export function schoolCodeProof(phoneId: string, schoolCode: string): string {
-  return createHash("sha256").update(`${phoneId}:${normalizeCode(schoolCode)}`).digest("hex").slice(0, 32);
+export function schoolCodeProof(phoneId: string, settings: Pick<Settings, "school_code" | "code_changed_at">): string {
+  return createHash("sha256")
+    .update(`${phoneId}:${normalizeCode(settings.school_code ?? "")}:${settings.code_changed_at ?? ""}`)
+    .digest("hex")
+    .slice(0, 32);
 }
 
 export function hasSchoolCode(settings: Settings, phoneId: string, cookieValue: string | undefined): boolean {
-  if (!settings.school_code || !cookieValue || cookieValue.length !== 32) return false;
-  return timingSafeEqual(Buffer.from(cookieValue), Buffer.from(schoolCodeProof(phoneId, settings.school_code)));
+  // Check the shape first: timingSafeEqual throws on inputs of different byte lengths.
+  if (!settings.school_code || !cookieValue || !HEX32.test(cookieValue)) return false;
+  return timingSafeEqual(Buffer.from(cookieValue), Buffer.from(schoolCodeProof(phoneId, settings)));
 }
 
 export function isAdminDevice(settings: Settings, device: Device | null): boolean {
@@ -64,8 +71,9 @@ export function cleanName(input: unknown): string | null {
   return name || null;
 }
 
+/** Always read fresh: only this phone changes its file, and it should see its own change at once. */
 export async function getDevice(deps: Deps, id: string): Promise<Device | null> {
-  return deps.docs.read(deviceKey(id), deviceSchema);
+  return deps.docs.read(deviceKey(id), deviceSchema, { fresh: true });
 }
 
 function blankDevice(id: string, now: Date): Device {
@@ -101,9 +109,16 @@ export async function setDeviceName(deps: Deps, id: string, name: string): Promi
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Rewrites the phone's file at most once a day to update last_seen_at (the clear-out drops phones unseen for a year). */
+/**
+ * Rewrites the phone's file at most once a day to update last_seen_at (the
+ * clear-out drops phones unseen for a year). Checked again against the fresh
+ * file, so several requests at the start of a day write once between them.
+ */
 export async function touchDevice(deps: Deps, device: Device): Promise<void> {
   const now = deps.now();
-  if (now.getTime() - Date.parse(device.last_seen_at) < DAY_MS) return;
-  await updateDevice(deps, device.id, (current) => ({ ...current, last_seen_at: now.toISOString() }));
+  const due = (seen: string) => now.getTime() - Date.parse(seen) >= DAY_MS;
+  if (!due(device.last_seen_at)) return;
+  await deps.docs.update(deviceKey(device.id), deviceSchema, (current) =>
+    current && due(current.last_seen_at) ? { value: { ...current, last_seen_at: now.toISOString() }, result: undefined } : { result: undefined },
+  );
 }
