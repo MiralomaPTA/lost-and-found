@@ -23,6 +23,14 @@ export const PHONE_COOKIE = `${prefix}lf_phone`;
 export const CODE_COOKIE = `${prefix}lf_code`;
 /** Wrong codes in a row, for the one-minute wait. */
 export const TRIES_COOKIE = `${prefix}lf_tries`;
+/**
+ * Set for a minute after this phone adds an item. While it's there, pages
+ * read items.json fresh instead of from the few-second cache, which may be
+ * on another server and not have the item yet: an adder who taps *Done*
+ * sees everything they just added.
+ */
+export const FRESH_COOKIE = `${prefix}lf_fresh`;
+export const FRESH_SECONDS = 60;
 
 export const YEAR_SECONDS = 365 * 24 * 60 * 60;
 

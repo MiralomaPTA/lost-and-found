@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { cache } from "react";
 import { formatTries, parseTries, type Tries } from "@/server/codes";
-import { CODE_COOKIE, cookieOptions, PHONE_COOKIE, TRIES_COOKIE } from "@/server/cookies";
+import { CODE_COOKIE, cookieOptions, FRESH_COOKIE, FRESH_SECONDS, PHONE_COOKIE, TRIES_COOKIE } from "@/server/cookies";
 import { getDeps, type Deps } from "@/server/deps";
 import { loadItems, type ItemsFile } from "@/server/items";
 import { getDevice, hasSchoolCode, isAdminDevice, isPhoneId, newPhoneId, schoolCodeProof, touchDevice, type Device } from "@/server/phones";
@@ -38,8 +38,14 @@ export const getVisitor = cache(async (): Promise<Visitor> => {
   return { settings, phoneId, device, isOpen: Boolean(settings.school_code), isAdmin, canBrowse: isAdmin || hasCode };
 });
 
-/** items.json, read once per request (a few seconds' cache across requests). */
-export const getItemsFile = cache(async (): Promise<ItemsFile> => loadItems(await getDeps()));
+/**
+ * items.json for this request, read once. Usually from the few-second cache;
+ * fresh for a phone that has just added something (see FRESH_COOKIE).
+ */
+export const getItemsFile = cache(async (): Promise<ItemsFile> => {
+  const fresh = (await cookies()).has(FRESH_COOKIE);
+  return loadItems(await getDeps(), { fresh });
+});
 
 export type AdminVisitor = Visitor & { phoneId: string; device: Device };
 
@@ -96,4 +102,9 @@ export async function writeTries(tries: Tries): Promise<void> {
 
 export async function clearTries(): Promise<void> {
   (await cookies()).delete(TRIES_COOKIE);
+}
+
+/** After this phone adds an item: its next pages read items.json fresh for a minute. */
+export async function readYourWrites(): Promise<void> {
+  (await cookies()).set(FRESH_COOKIE, "1", { ...cookieOptions, maxAge: FRESH_SECONDS });
 }

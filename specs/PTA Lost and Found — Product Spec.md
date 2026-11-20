@@ -163,7 +163,7 @@ Each item gets three tags and nothing else: type, color, and whether it has a na
   - Volunteers work at a photo spot with a plain backdrop, such as a solid-color poster board (open question 11). The browser trims the backdrop from around the item, leaving a small margin, so the frozen photo already shows the crop.
   - If the trim can't find a clear edge (a busy background, or an item the same color as the backdrop), the square is kept. A *Full photo* button under the frozen photo undoes a bad crop.
   - A trimmed photo isn't always square, so cards show the whole photo centered on a plain background.
-- **Fixing a mistake.** A strip along the top shows the items saved since bulk add was opened. Tapping one opens it to change its tags, or *Undo* to take it off the list. Once the person leaves bulk add, anyone can still fix its tags from the item page, but only an admin can remove it.
+- **Fixing a mistake.** A strip along the top shows the items saved since bulk add was opened. Tapping one opens it to change its tags, or *Undo* to take it off the list. Once the person leaves bulk add, anyone can still fix its tags from the item page, but only an admin can remove it. (As a backstop for a screen left open, the app accepts the adder's *Undo* for 3 hours after adding.)
 - **Saving doesn't wait.** Each item uploads in the background while the person carries on, and the strip shows each upload's progress. A failed upload stays in the strip with *Retry*, and the page warns before it is closed with uploads still waiting.
 - **Without the live camera** (permission refused, or an older browser), bulk add falls back to the phone's own camera app, with the same tags after each photo.
 
@@ -176,7 +176,9 @@ Each item gets three tags and nothing else: type, color, and whether it has a na
 
 **For both:**
 
-- **Photos:** the browser converts HEIC from the camera roll, resizes every photo to at most 1600 px (which keeps uploads under Vercel's 4.5 MB request limit), and makes the 400 px thumbnail too. Both are uploaded and stored in the bucket. Unlike asset-manager, the server uses no image library such as sharp, so nothing ties it to Vercel (see *Hosting*).
+- **Photos:** the browser resizes every photo to at most 1600 px (which keeps uploads under Vercel's 4.5 MB request limit) and makes the 400 px thumbnail too. Both are uploaded and stored in the bucket. Unlike asset-manager, the server uses no image library such as sharp, so nothing ties it to Vercel (see *Hosting*).
+  - HEIC from an iPhone's camera roll is left to the browser: iOS hands the photo picker a JPEG copy, and Safari reads HEIC itself. A browser that can't read a photo says so and asks for another.
+  - Photos keep no metadata, such as the location a camera-roll photo was taken: the browser redraws every photo, and the server drops any metadata a file still carries.
 - The date added and the phone that added it are recorded automatically, and the item's age comes from the date. Item IDs are sequential, e.g. L-0142. Admins see them; nobody else does.
 - The first add from a phone asks for the name admins will see, as the first claim does.
 - Once the person has left the add screen, they can ask for an item to be removed by emailing lostandfound@miralomasf.com. The add screens say so.
@@ -287,7 +289,7 @@ The bucket, "miraloma-pta-lost-and-found":
   - A claim on an item someone else claimed in between fails cleanly: "Someone just claimed this." Two people fixing the same item's tags at once both succeed, one after the other, and the later change wins.
   - Writes to `items.json` come a few a minute at the busiest, even with two volunteers doing bulk adds at once, so retries are rare. `settings.json` uses the same safe write. A phone's own file and new activity files don't compete with anything, so they are written directly.
 - **Reads.** A page reads `items.json`, `settings.json` and that phone's file, which also says whether the phone is an admin.
-  - A short in-memory cache (a few seconds, cleared on that server's own writes) smooths out bursts after a newsletter link.
+  - A short in-memory cache (a few seconds, cleared on that server's own writes) smooths out bursts after a newsletter link. A phone that has just added an item reads the list fresh for a minute, so it sees what it added even if another server answers.
   - Filtering and sorting happen on the server. At about 300 items there is nothing to query.
   - R2's free tier includes 10 million reads a month, with no per-minute limit like Sheets'.
 - **My items** reads the phone's claims from `items.json` and from the last clear-out's archive, which is where *Picked up* claims come from. An old link to a cleared-out item is answered from the archives.

@@ -1,0 +1,90 @@
+"use server";
+
+import { logActivity } from "@/server/activity";
+import { getDeps } from "@/server/deps";
+import { ConflictError } from "@/server/docs";
+import { changeItems, changeTags, ITEM_ID, undoAdd, type AdderUndo, type TagChange } from "@/server/items";
+import { getVisitor } from "@/server/session";
+import { activeColors, activeTypes } from "@/server/views";
+
+/*
+ * Changes to items from the add screens: the adder's *Undo*, and fixing the
+ * tags of an item just added (the item page's *Fix tags* uses the same
+ * action). Like the other actions, these answer with a message.
+ */
+
+export type ItemChangeResult = { ok: true } | { ok: false; message: string };
+
+const NO_CODE = "Enter the school code first.";
+const BUSY = "Lots of changes are happening at once. Try again.";
+const GONE = "This item isn't on the list any more.";
+
+async function visitorWithCode() {
+  const visitor = await getVisitor();
+  return visitor.canBrowse && visitor.phoneId ? { ...visitor, phoneId: visitor.phoneId } : null;
+}
+
+async function orBusy(run: () => Promise<ItemChangeResult>): Promise<ItemChangeResult> {
+  try {
+    return await run();
+  } catch (error) {
+    if (error instanceof ConflictError) return { ok: false, message: BUSY };
+    throw error;
+  }
+}
+
+/** The adder takes back an item they just added, from the add screen. */
+export async function undoAddAction(itemId: unknown): Promise<ItemChangeResult> {
+  const visitor = await visitorWithCode();
+  if (!visitor) return { ok: false, message: NO_CODE };
+  if (typeof itemId !== "string" || !ITEM_ID.test(itemId)) return { ok: false, message: GONE };
+  const deps = await getDeps();
+  return orBusy(async () => {
+    const outcome = await changeItems<AdderUndo>(deps, (file) => {
+      const result = undoAdd(file, { itemId, phoneId: visitor.phoneId }, deps.now());
+      return result.ok ? { value: file, result } : { result };
+    });
+    if (!outcome.ok) {
+      const messages = {
+        gone: GONE,
+        taken: "Someone has already claimed it, so it stays on the list.",
+        late: `It's been on the list too long to undo here. To have it removed, email the PTA.`,
+      };
+      return { ok: false, message: messages[outcome.reason] };
+    }
+    await logActivity(deps, { actor: visitor.phoneId, as_admin: visitor.isAdmin, action: "add_undone", item_id: itemId });
+    return { ok: true };
+  });
+}
+
+/** *Fix tags*: anyone with the code can change an item's type, color and *Has a name*. */
+export async function changeTagsAction(itemId: unknown, tags: unknown): Promise<ItemChangeResult> {
+  const visitor = await visitorWithCode();
+  if (!visitor) return { ok: false, message: NO_CODE };
+  if (typeof itemId !== "string" || !ITEM_ID.test(itemId)) return { ok: false, message: GONE };
+  const { type, color, has_name } = (typeof tags === "object" && tags ? tags : {}) as Record<string, unknown>;
+  if (typeof type !== "string" || !activeTypes(visitor.settings).includes(type)) return { ok: false, message: "Pick a type from the list." };
+  if (typeof color !== "string" || !activeColors(visitor.settings).some((c) => c.name === color)) return { ok: false, message: "Pick a color from the list." };
+  if (typeof has_name !== "boolean") return { ok: false, message: "Say whether it has a name." };
+  const deps = await getDeps();
+  return orBusy(async () => {
+    const outcome = await changeItems<TagChange>(deps, (file) => {
+      const result = changeTags(file, { itemId, phoneId: visitor.phoneId, tags: { type, color, has_name } }, deps.now());
+      return result.ok && result.changed ? { value: file, result } : { result };
+    });
+    if (!outcome.ok) return { ok: false, message: GONE };
+    if (outcome.changed) {
+      await logActivity(deps, {
+        actor: visitor.phoneId,
+        as_admin: visitor.isAdmin,
+        action: "tags_changed",
+        item_id: itemId,
+        detail: {
+          from: `${outcome.before.type}, ${outcome.before.color}${outcome.before.has_name ? ", has a name" : ""}`,
+          to: `${type}, ${color}${has_name ? ", has a name" : ""}`,
+        },
+      });
+    }
+    return { ok: true };
+  });
+}

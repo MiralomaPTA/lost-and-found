@@ -24,6 +24,11 @@ export const ITEMS_KEY = "items.json";
 
 export const ITEM_ID = /^L-\d{4,6}$/;
 export const CLAIM_ID = /^c-[0-9a-f]{10}$/;
+/** A random reference the phone makes for each add, so a retried upload can't add the item twice. */
+export const CLIENT_REF = /^[0-9a-f]{32}$/;
+
+/** How long the person who added an item can take it back off the list themselves (spec: *Fixing a mistake*). */
+export const ADDER_UNDO_MS = 3 * 60 * 60 * 1000;
 
 export const CLAIM_STATUSES = ["open", "unclaimed", "undone", "not found", "picked up"] as const;
 export const REMOVED_REASONS = ["returned in person", "gone from the bin", "duplicate or mistake", "thrown away", "other", "not in the bin", "add undone"] as const;
@@ -63,6 +68,8 @@ export const itemSchema = z.looseObject({
   removed_reason: z.enum(REMOVED_REASONS).nullable(),
   donated_at: moment.nullable(),
   claims: z.array(claimSchema),
+  /** The phone's reference for the upload that added it (see CLIENT_REF). */
+  client_ref: z.string().regex(CLIENT_REF).optional(),
 });
 
 export const itemsFileSchema = z.looseObject({
@@ -163,6 +170,7 @@ export interface NewItem {
   phoneId: string;
   /** The phone's name, recorded with the item. */
   name: string;
+  clientRef?: string;
 }
 
 /** Adds an item at the top of the grid, with the next number. */
@@ -186,10 +194,63 @@ export function addItem(file: ItemsFile, input: NewItem, now: Date): Item {
     removed_reason: null,
     donated_at: null,
     claims: [],
+    ...(input.clientRef ? { client_ref: input.clientRef } : {}),
   };
   file.next_number += 1;
   file.items.push(item);
   return item;
+}
+
+/** The item a phone already added with this upload reference, if any. */
+export function addedWithRef(file: ItemsFile, phoneId: string, clientRef: string): Item | undefined {
+  return file.items.find((item) => item.client_ref === clientRef && item.added_by === phoneId);
+}
+
+export type AdderUndo = { ok: true; item: Item } | { ok: false; reason: "gone" | "taken" | "late" };
+
+/**
+ * The adder's own *Undo*, from the add screens: the item comes off the list
+ * as removed, "add undone". Only for the phone that added it, while nobody
+ * has claimed it, and for a few hours (the add screens offer it only until
+ * they're left; after that, only an admin can remove an item).
+ */
+export function undoAdd(file: ItemsFile, input: { itemId: string; phoneId: string }, now: Date): AdderUndo {
+  const item = file.items.find((i) => i.id === input.itemId);
+  if (!item || item.added_by !== input.phoneId || item.status === "removed" || item.status === "donated") return { ok: false, reason: "gone" };
+  if (item.status === "claimed") return { ok: false, reason: "taken" };
+  if (now.getTime() - Date.parse(item.added_at) > ADDER_UNDO_MS) return { ok: false, reason: "late" };
+  const at = now.toISOString();
+  item.status = "removed";
+  item.removed_at = at;
+  item.removed_by = input.phoneId;
+  item.removed_reason = "add undone";
+  item.updated_at = at;
+  item.updated_by = input.phoneId;
+  return { ok: true, item };
+}
+
+export interface Tags {
+  type: string;
+  color: string;
+  has_name: boolean;
+}
+
+export type TagChange = { ok: true; item: Item; before: Tags; changed: boolean } | { ok: false; reason: "gone" };
+
+/** *Fix tags* (spec section 5): anyone can change an item's type, color and *Has a name* while it's on the list. */
+export function changeTags(file: ItemsFile, input: { itemId: string; phoneId: string; tags: Tags }, now: Date): TagChange {
+  const item = file.items.find((i) => i.id === input.itemId);
+  if (!item || (item.status !== "available" && item.status !== "claimed")) return { ok: false, reason: "gone" };
+  const before: Tags = { type: item.type, color: item.color, has_name: item.has_name };
+  const changed = before.type !== input.tags.type || before.color !== input.tags.color || before.has_name !== input.tags.has_name;
+  if (changed) {
+    item.type = input.tags.type;
+    item.color = input.tags.color;
+    item.has_name = input.tags.has_name;
+    item.updated_at = now.toISOString();
+    item.updated_by = input.phoneId;
+  }
+  return { ok: true, item, before, changed };
 }
 
 export type ClaimOutcome = { ok: true; claim: Claim; changed: boolean } | { ok: false; reason: "taken" | "gone" };
