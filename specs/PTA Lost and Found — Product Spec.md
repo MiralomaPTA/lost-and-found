@@ -256,7 +256,7 @@ The same web app setup as asset-manager, but the data lives in a storage bucket 
 
 ### Storage layout
 
-The bucket, "pta-lost-and-found":
+The bucket, "miraloma-pta-lost-and-found":
 
 | Object | Holds | Written when |
 | --- | --- | --- |
@@ -280,7 +280,7 @@ The bucket, "pta-lost-and-found":
 - **Starting lists** (open question 6), written to `settings.json` on first use:
   - Types: Jacket, Shirt, Hoodie, Sweatshirt, Hat/Gloves, Shoes, Water bottle, Lunch box, Backpack, Toy & sports, Other.
   - Colors: Black, White, Gray, Navy, Blue, Light blue, Green, Red, Pink, Purple, Orange, Yellow, Brown, Tan, Multicolor.
-- **Safe writes.** R2 has no transactions, but it can refuse a write when the file has changed since it was read. This is checked in Phase 0 before anything is built on it (see *Rollout plan*):
+- **Safe writes.** R2 has no transactions, but it can refuse a write when the file has changed since it was read. Checked in Phase 0 on Nov 20, 2026: R2's S3 interface refuses out-of-date writes and lets exactly one of several racing writes through, so the app writes to R2 directly (see *Rollout plan*):
   - Every change to `items.json` reads the file and its version tag (ETag), makes the change, and writes the file back only if the tag still matches.
   - R2 checks this as part of the write, so when two writes race, one succeeds and the other is refused. The app then re-reads and tries again, a few times at most.
   - A claim on an item someone else claimed in between fails cleanly: "Someone just claimed this." Two people fixing the same item's tags at once both succeed, one after the other, and the later change wins.
@@ -330,7 +330,7 @@ The bucket, "pta-lost-and-found":
 1. **Phase 0: Setup.**
    - Create lostandfound@miralomasf.com, to own the Cloudflare and Vercel accounts and to receive questions and concerns. Forward its mail to the admins, or give them access to the inbox (open question 15).
    - As lostandfound@, create a Cloudflare account, an R2 bucket, and an API token that can reach only that bucket. The app creates its files on first use.
-   - Check safe writes before building on them. A short script writes an object, changes it, then tries a write with the old ETag (`If-Match`) and confirms that R2 refuses it. If R2's S3 interface doesn't honor `If-Match`, writes to `items.json` and `settings.json` go through a small Cloudflare Worker that uses R2's own conditional write (`onlyIf`). That Worker fits the free plan, and the rest of the design stays the same.
+   - Check safe writes before building on them. A short script writes an object, changes it, then tries a write with the old ETag (`If-Match`) and confirms that R2 refuses it. If R2's S3 interface doesn't honor `If-Match`, writes to `items.json` and `settings.json` go through a small Cloudflare Worker that uses R2's own conditional write (`onlyIf`). That Worker fits the free plan, and the rest of the design stays the same. **Done Nov 20, 2026: every check passed (`npm run check:r2`), so the Worker isn't needed.**
    - Put the first admin code in an environment variable. The app copies it to `settings.json` on first use, and admins can change it from Settings.
    - Create the Vercel project, add the GitHub repository secrets and the R2 credentials, and add the DNS record for lostandfound.miralomasf.com.
    - Set up a photo spot by the bin with good light and a plain backdrop (open question 11).
