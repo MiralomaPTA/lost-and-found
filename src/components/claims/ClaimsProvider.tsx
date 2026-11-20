@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { claimAction, unclaimAction } from "@/app/actions/claims";
+import { countOpenClaims, type CardState } from "@/components/claims/claim-state";
 
 /**
  * Claiming from the grid and the item page (spec section 2): one tap, no
@@ -11,23 +12,19 @@ import { claimAction, unclaimAction } from "@/app/actions/claims";
 
 export interface ClaimTarget {
   id: string;
+  /** "Navy jacket". */
   label: string;
   thumb: string;
   title: string;
 }
 
-export type CardState =
-  | { kind: "open"; message?: string }
-  | { kind: "busy" }
-  | { kind: "mine"; claimId: string; message?: string }
-  | { kind: "taken" }
-  | { kind: "gone"; message: string };
+export type { CardState };
 
 interface ClaimsValue {
   stateOf(itemId: string): CardState;
   claim(target: ClaimTarget): void;
-  undo(itemId: string): void;
-  /** This phone's open claims, counting the ones made on this page. */
+  undo(target: ClaimTarget): void;
+  /** This phone's open claims, counting the ones made and undone on this page. */
   openCount: number;
   contactEmail: string;
 }
@@ -47,8 +44,9 @@ export function useOptionalClaims(): ClaimsValue | null {
 /*
  * Claims made since the page was opened, kept across moves between the grid
  * and item pages (which don't reload the page), so a card claimed on one
- * still shows "In My items" on the other. A reload starts over, and by then
- * the claimed item has left the grid.
+ * still shows "In My items" on the other, even when the page comes back from
+ * history as it was before the claim. A reload starts over, and by then the
+ * claimed item has left the grid.
  */
 const claimedHere = new Map<string, string>();
 let namedHere = false;
@@ -63,7 +61,7 @@ const TOAST_MS = 10_000;
 
 export function ClaimsProvider({
   hasName,
-  openClaims,
+  openClaimIds,
   initialMine = {},
   available = [],
   bin,
@@ -71,8 +69,9 @@ export function ClaimsProvider({
   children,
 }: {
   hasName: boolean;
-  openClaims: number;
-  /** Items this phone already has claimed, by item ID: their claim IDs, for *Undo*. */
+  /** The items this phone already has claimed, as the server last saw them. */
+  openClaimIds: string[];
+  /** Of those, the ones whose claim IDs this page needs for *Undo*. */
   initialMine?: Record<string, string>;
   /** Items the server just said are available, which overrules what this page remembers. */
   available?: string[];
@@ -99,19 +98,26 @@ export function ClaimsProvider({
   useEffect(() => {
     latest.current = states;
   }, [states]);
+
   const [named, setNamed] = useState(hasName || namedHere);
-  const [delta, setDelta] = useState(0);
   const [asking, setAsking] = useState<ClaimTarget | null>(null);
-  const [toast, setToast] = useState(false);
+  const [toast, setToast] = useState(0);
+  const [toastPaused, setToastPaused] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
 
   const set = useCallback((itemId: string, state: CardState) => setStates((all) => ({ ...all, [itemId]: state })), []);
+  // Screen readers hear changes through one live region that's always on the page.
+  const announce = useCallback((text: string) => setAnnouncement((previous) => (previous === text ? `${text} ` : text)), []);
+  const rememberNamed = useCallback(() => {
+    namedHere = true;
+    setNamed(true);
+  }, []);
 
-  const showToast = useCallback(() => setToast(true), []);
   useEffect(() => {
-    if (!toast) return;
-    const timer = setTimeout(() => setToast(false), TOAST_MS);
+    if (!toast || toastPaused) return;
+    const timer = setTimeout(() => setToast(0), TOAST_MS);
     return () => clearTimeout(timer);
-  }, [toast, states]);
+  }, [toast, toastPaused]);
 
   /** Claims, with the typed name on a first claim. Answers the sheet's error, if any. */
   const run = useCallback(
@@ -122,17 +128,19 @@ export function ClaimsProvider({
         result = await claimAction(target.id, name);
       } catch {
         set(target.id, { kind: "open", message: OFFLINE });
+        announce(OFFLINE);
         return OFFLINE;
       }
       if (result.ok) {
-        setDelta((d) => d + 1);
         claimedHere.set(target.id, result.claimId);
-        namedHere = true;
-        setNamed(true);
+        rememberNamed();
         set(target.id, { kind: "mine", claimId: result.claimId });
-        showToast();
+        setToast((n) => n + 1);
+        announce(`${target.label} is in My items. Pick it up from the lost-and-found bin ${bin}.`);
         return null;
       }
+      // The name may have been saved even though the claim didn't go through.
+      if (result.named) rememberNamed();
       switch (result.reason) {
         case "need-name":
           setNamed(false);
@@ -141,16 +149,19 @@ export function ClaimsProvider({
           return result.message;
         case "taken":
           set(target.id, { kind: "taken" });
+          announce(`Someone just claimed the ${target.label.toLowerCase()}. If it's yours, email the PTA.`);
           return null;
         case "gone":
           set(target.id, { kind: "gone", message: result.message });
+          announce(result.message);
           return null;
         default:
           set(target.id, { kind: "open", message: result.message });
+          announce(result.message);
           return result.message;
       }
     },
-    [set, showToast],
+    [set, announce, rememberNamed, bin],
   );
 
   const claim = useCallback(
@@ -162,46 +173,56 @@ export function ClaimsProvider({
   );
 
   const undo = useCallback(
-    async (itemId: string) => {
-      const current = latest.current[itemId];
+    async (target: ClaimTarget) => {
+      const current = latest.current[target.id];
       if (current?.kind !== "mine") return;
       const { claimId } = current;
-      set(itemId, { kind: "busy" });
+      set(target.id, { kind: "busy" });
       let result;
       try {
-        result = await unclaimAction(itemId, claimId);
+        result = await unclaimAction(target.id, claimId);
       } catch {
-        set(itemId, { kind: "mine", claimId, message: OFFLINE });
+        set(target.id, { kind: "mine", claimId, message: OFFLINE });
+        announce(OFFLINE);
         return;
       }
       if (result.ok) {
-        claimedHere.delete(itemId);
-        setDelta((d) => d - 1);
-        set(itemId, { kind: "open" });
-        setToast(false);
+        claimedHere.delete(target.id);
+        set(target.id, { kind: "open" });
+        setToast(0);
+        announce(`${target.label} is back on the list.`);
+      } else if (result.reason === "busy" || result.reason === "no-code") {
+        set(target.id, { kind: "mine", claimId, message: result.message });
+        announce(result.message);
       } else {
-        set(itemId, { kind: "mine", claimId, message: result.message });
+        // An admin closed the claim, or the item left the list: there's nothing to undo.
+        claimedHere.delete(target.id);
+        set(target.id, { kind: "gone", message: result.message });
+        announce(result.message);
       }
     },
-    [set],
+    [set, announce],
   );
 
   const value = useMemo<ClaimsValue>(
     () => ({
       stateOf: (itemId) => states[itemId] ?? { kind: "open" },
       claim,
-      undo: (itemId) => void undo(itemId),
-      openCount: Math.max(0, openClaims + delta),
+      undo: (target) => void undo(target),
+      openCount: countOpenClaims(openClaimIds, states),
       contactEmail,
     }),
-    [states, claim, undo, openClaims, delta, contactEmail],
+    [states, claim, undo, openClaimIds, contactEmail],
   );
 
   return (
     <ClaimsContext.Provider value={value}>
       {children}
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
       <NameSheet target={asking} onClose={() => setAsking(null)} onSubmit={run} />
-      {toast && <PickupToast bin={bin} onClose={() => setToast(false)} />}
+      {toast > 0 && <PickupToast bin={bin} onClose={() => setToast(0)} onPause={setToastPaused} />}
     </ClaimsContext.Provider>
   );
 }
@@ -309,10 +330,15 @@ function NameSheet({
   );
 }
 
-function PickupToast({ bin, onClose }: { bin: string; onClose: () => void }) {
+/** Where to pick it up. The live region announces it; the bar stays while it's pointed at or focused. */
+function PickupToast({ bin, onClose, onPause }: { bin: string; onClose: () => void; onPause: (paused: boolean) => void }) {
+  useEffect(() => () => onPause(false), [onPause]);
   return (
     <div
-      role="status"
+      onMouseEnter={() => onPause(true)}
+      onMouseLeave={() => onPause(false)}
+      onFocus={() => onPause(true)}
+      onBlur={() => onPause(false)}
       className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md items-center gap-2.5 rounded-[14px] bg-ink py-1.5 pr-1 pl-3.5 text-white shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
     >
       <svg aria-hidden="true" className="flex-none" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

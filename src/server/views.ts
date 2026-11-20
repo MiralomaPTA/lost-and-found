@@ -1,4 +1,4 @@
-import { nextClearOut } from "@/lib/clear-out";
+import { upcomingClearOut, type UpcomingClearOut } from "@/lib/clear-out";
 import { ageLabel, dateLabel, daysBetween, pacificDate, relativeDayLabel, shortDate, shortDayLabel } from "@/lib/dates";
 import { gridSearch, type GridQuery } from "@/lib/grid-query";
 import type { Archive } from "@/server/archives";
@@ -92,15 +92,22 @@ export function cardView(item: Item, settings: Settings, now: Date, query: GridQ
   };
 }
 
-/** The next clear-out day (YYYY-MM-DD), for the header and the donation reminder. */
-export function nextClearOutDay(settings: Settings, file: ItemsFile, now: Date): string | null {
-  return nextClearOut(pacificDate(now), settings.clear_out_changes, file.last_clear_out?.date ?? null);
+/** The clear-out families should plan for, for the header and the donation reminder. */
+export function nextClearOutFor(settings: Settings, file: ItemsFile, now: Date): UpcomingClearOut | null {
+  return upcomingClearOut(pacificDate(now), settings.clear_out_changes, file.last_clear_out);
 }
 
-/** How many of this phone's claims are still open: the badge on *My items* and the pick-up reminder. */
+/**
+ * The items this phone has open claims on, by item ID (never the claim's
+ * phone ID): the badge on *My items* and the pick-up reminder count them.
+ */
+export function openClaimItemIds(file: ItemsFile, phoneId: string | null): string[] {
+  if (!phoneId) return [];
+  return file.items.filter((item) => item.status === "claimed" && item.claims.some((c) => c.status === "open" && c.device_id === phoneId)).map((item) => item.id);
+}
+
 export function openClaimCount(file: ItemsFile, phoneId: string | null): number {
-  if (!phoneId) return 0;
-  return file.items.filter((item) => item.status === "claimed" && item.claims.some((c) => c.status === "open" && c.device_id === phoneId)).length;
+  return openClaimItemIds(file, phoneId).length;
 }
 
 // --- The item page ---
@@ -165,6 +172,8 @@ export interface MyClaimView {
   itemId: string;
   claimId: string;
   label: string;
+  /** "Jacket". */
+  type: string;
   title: string;
   thumb: string | null;
   /** "Claimed today", "Claimed Thu, Dec 3". */
@@ -203,6 +212,7 @@ export function myItemsView(file: ItemsFile, archive: Archive | null, phoneId: s
         itemId: item.id,
         claimId: claim.id,
         label: itemLabel(item),
+        type: item.type,
         title: `${item.type} · ${item.color}`,
         thumb: photoUrl(item.thumb),
         claimed: `Claimed ${relativeDayLabel(claim.claimed_at, now)}`,
@@ -222,6 +232,7 @@ export function myItemsView(file: ItemsFile, archive: Archive | null, phoneId: s
         itemId: item.id,
         claimId: claim.id,
         label: itemLabel(item),
+        type: item.type,
         title: `${item.type} · ${item.color}`,
         thumb: null,
         claimed: `Claimed ${relativeDayLabel(claim.claimed_at, now)}`,

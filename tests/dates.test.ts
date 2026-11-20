@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clearOutDates, nextClearOut, secondFriday, showReminder } from "@/lib/clear-out";
+import { clearOutDates, secondFriday, showReminder, upcomingClearOut } from "@/lib/clear-out";
 import { ageLabel, dateLabel, dayLabel, daysBetween, relativeDayLabel } from "@/lib/dates";
 
 describe("ages", () => {
@@ -50,18 +50,37 @@ describe("clear-out dates", () => {
     expect(clearOutDates({ year: 2026, month: 11 }, 4, changes)).toEqual(["2026-11-13", "2026-12-18", "2027-02-12"]);
   });
 
+  const done = (date: string, doneAt = `${date}T23:00:00Z`) => ({ date, done_at: doneAt });
+
   it("finds the next one", () => {
-    expect(nextClearOut("2026-12-07", [], null)).toBe("2026-12-11");
+    expect(upcomingClearOut("2026-12-07", [], null)).toEqual({ date: "2026-12-11", overdue: false });
     // On the day, until it's done.
-    expect(nextClearOut("2026-12-11", [], "2026-11-13")).toBe("2026-12-11");
-    expect(nextClearOut("2026-12-11", [], "2026-12-11")).toBe("2027-01-08");
-    // A date that passed without a clear-out isn't "next" for families.
-    expect(nextClearOut("2026-12-14", [], "2026-11-13")).toBe("2027-01-08");
+    expect(upcomingClearOut("2026-12-11", [], done("2026-11-13"))).toEqual({ date: "2026-12-11", overdue: false });
+    expect(upcomingClearOut("2026-12-11", [], done("2026-12-11"))).toEqual({ date: "2027-01-08", overdue: false });
+  });
+
+  it("keeps a date that slipped as due until the clear-out runs", () => {
+    expect(upcomingClearOut("2026-12-14", [], done("2026-11-13"))).toEqual({ date: "2026-12-11", overdue: true });
+    // Run late, on Monday: it counted for Dec 11, so January is next.
+    expect(upcomingClearOut("2026-12-14", [], done("2026-12-11", "2026-12-15T01:00:00Z"))).toEqual({ date: "2027-01-08", overdue: false });
+  });
+
+  it("never calls a date from before the first clear-out overdue", () => {
+    expect(upcomingClearOut("2026-11-20", [], null)).toEqual({ date: "2026-12-11", overdue: false });
+  });
+
+  it("handles a moved date before and after its clear-out", () => {
+    const moved = [{ date: "2026-12-11", change: "moved" as const, moved_to: "2026-12-18" }];
+    expect(upcomingClearOut("2026-12-14", moved, done("2026-11-13"))).toEqual({ date: "2026-12-18", overdue: false });
+    // Done on the moved-to day, recorded as that date…
+    expect(upcomingClearOut("2026-12-18", moved, done("2026-12-18"))).toEqual({ date: "2027-01-08", overdue: false });
+    // …or recorded as the original second Friday: the day it ran still counts.
+    expect(upcomingClearOut("2026-12-18", moved, done("2026-12-11", "2026-12-18T23:00:00Z"))).toEqual({ date: "2027-01-08", overdue: false });
   });
 
   it("finds a date moved in from last month", () => {
     const changes = [{ date: "2026-11-13", change: "moved" as const, moved_to: "2026-12-02" }];
-    expect(nextClearOut("2026-12-01", changes, null)).toBe("2026-12-02");
+    expect(upcomingClearOut("2026-12-01", changes, null)).toEqual({ date: "2026-12-02", overdue: false });
   });
 
   it("has none when a whole year is skipped", () => {
@@ -70,14 +89,15 @@ describe("clear-out dates", () => {
       change: "skipped" as const,
       moved_to: null,
     }));
-    expect(nextClearOut("2026-12-01", changes, null)).toBeNull();
+    expect(upcomingClearOut("2026-12-01", changes, null)).toBeNull();
   });
 
-  it("shows the donation reminder in the last 7 days, the day itself included", () => {
-    expect(showReminder("2026-12-04", "2026-12-11")).toBe(false);
-    expect(showReminder("2026-12-05", "2026-12-11")).toBe(true);
-    expect(showReminder("2026-12-11", "2026-12-11")).toBe(true);
-    expect(showReminder("2026-12-12", "2026-12-11")).toBe(false);
+  it("shows the donation reminder in the last 7 days, the day itself included, and while overdue", () => {
+    const dec11 = { date: "2026-12-11", overdue: false };
+    expect(showReminder("2026-12-04", dec11)).toBe(false);
+    expect(showReminder("2026-12-05", dec11)).toBe(true);
+    expect(showReminder("2026-12-11", dec11)).toBe(true);
+    expect(showReminder("2026-12-14", { date: "2026-12-11", overdue: true })).toBe(true);
     expect(showReminder("2026-12-05", null)).toBe(false);
   });
 });

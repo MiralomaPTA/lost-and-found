@@ -15,9 +15,20 @@ import { config } from "@/server/config";
 import { getDeps } from "@/server/deps";
 import { ITEM_ID } from "@/server/items";
 import { getItemsFile, getVisitor } from "@/server/session";
-import { archivedItemView, itemPageView, openClaimCount, type Swatch as SwatchValue } from "@/server/views";
+import { archivedItemView, itemLabel, itemPageView, openClaimItemIds, type Swatch as SwatchValue } from "@/server/views";
 
-export const metadata: Metadata = { title: "Item · Lost & Found" };
+/**
+ * "Navy jacket · Lost & Found". A title per item lets screen readers announce
+ * each move to the next item. Only for phones with the code; anyone else
+ * gets the code box and a plain title.
+ */
+export async function generateMetadata({ params }: PageProps<"/items/[id]">): Promise<Metadata> {
+  const { id } = await params;
+  const visitor = await getVisitor();
+  const item = visitor.canBrowse && ITEM_ID.test(id) ? (await getItemsFile()).items.find((i) => i.id === id) : undefined;
+  const label = item && (item.status === "available" || item.status === "claimed") ? itemLabel(item) : "Item";
+  return { title: `${label} · Lost & Found` };
+}
 
 /** One item: the large photo, its tags and age, and *This is mine* (spec section 1, *Item page*). */
 export default async function ItemPage({ params, searchParams }: PageProps<"/items/[id]">) {
@@ -100,7 +111,7 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/ite
         {view.kind === "on-list" && view.state !== "claimed" && (
           <ClaimsProvider
             hasName={Boolean(visitor.device?.name)}
-            openClaims={openClaimCount(file, visitor.phoneId)}
+            openClaimIds={openClaimItemIds(file, visitor.phoneId)}
             initialMine={view.claimId ? { [view.card.id]: view.claimId } : {}}
             available={view.state === "available" ? [view.card.id] : []}
             bin={settings.bin_description}

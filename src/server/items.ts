@@ -68,8 +68,11 @@ export const itemSchema = z.looseObject({
 export const itemsFileSchema = z.looseObject({
   version: z.literal(1),
   next_number: z.number().int().positive(),
-  /** The clear-out this list started after: the date it counted for, and when it ran. */
-  last_clear_out: z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), done_at: moment }).nullable(),
+  /**
+   * The clear-out this list started after: the date it counted for (the date
+   * it was due on, after any move, YYYY-MM-DD) and when it actually ran.
+   */
+  last_clear_out: z.looseObject({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), done_at: moment }).nullable(),
   items: z.array(itemSchema),
 });
 
@@ -226,8 +229,9 @@ export function claimItem(file: ItemsFile, input: { itemId: string; phoneId: str
  * - `gone`: the item or the claim isn't on the list (or isn't this phone's).
  * - `ended`: an admin already undid the claim, or it was closed some other way.
  * - `changed`: the item changed since, so there's nothing to undo.
+ * - `taken`: someone else claimed the item since.
  */
-export type ClaimChange = { ok: true; item: Item; claim: Claim } | { ok: false; reason: "gone" | "ended" | "changed" };
+export type ClaimChange = { ok: true; item: Item; claim: Claim } | { ok: false; reason: "gone" | "ended" | "changed" | "taken" };
 
 function ownClaim(file: ItemsFile, itemId: string, claimId: string, phoneId: string): { item: Item; claim: Claim } | null {
   const item = file.items.find((i) => i.id === itemId);
@@ -247,6 +251,28 @@ export function unclaimItem(file: ItemsFile, input: { itemId: string; claimId: s
   claim.ended_by = input.phoneId;
   item.status = "available";
   item.updated_at = at;
+  item.updated_by = input.phoneId;
+  return { ok: true, item, claim };
+}
+
+/**
+ * *Undo* after *Unclaim* in My items: reopens the same claim, so it keeps its
+ * date and its place in the list. Only while nobody else has claimed the item
+ * and nothing else has happened to it since.
+ */
+export function undoUnclaim(file: ItemsFile, input: { itemId: string; claimId: string; phoneId: string }, now: Date): ClaimChange {
+  const found = ownClaim(file, input.itemId, input.claimId, input.phoneId);
+  if (!found) return { ok: false, reason: "gone" };
+  const { item, claim } = found;
+  if (item.status === "claimed" && openClaim(item)?.device_id !== input.phoneId) return { ok: false, reason: "taken" };
+  const latest = item.claims[item.claims.length - 1];
+  const untouched = claim.status === "unclaimed" && claim.ended_by === input.phoneId && latest === claim && item.status === "available";
+  if (!untouched) return { ok: false, reason: "changed" };
+  claim.status = "open";
+  claim.ended_at = null;
+  claim.ended_by = null;
+  item.status = "claimed";
+  item.updated_at = now.toISOString();
   item.updated_by = input.phoneId;
   return { ok: true, item, claim };
 }

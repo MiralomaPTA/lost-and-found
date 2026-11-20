@@ -1,4 +1,4 @@
-import { dayFromNumber, dayNumber } from "@/lib/dates";
+import { dayFromNumber, dayNumber, pacificDate } from "@/lib/dates";
 
 /**
  * Clear-out dates (spec section 7). One is due on the second Friday of each
@@ -38,18 +38,41 @@ export function clearOutDates(from: { year: number; month: number }, months: num
   return dates.sort();
 }
 
+/** The clear-out that last ran: the (moved-to) date it counted for, and when it actually ran. */
+export interface LastClearOut {
+  date: string;
+  done_at: string;
+}
+
+export interface UpcomingClearOut {
+  /** YYYY-MM-DD. */
+  date: string;
+  /** The date has passed and no clear-out has run since: the bin will be emptied any day. */
+  overdue: boolean;
+}
+
 /**
- * The next clear-out on or after `today`, or null if every date in the
- * coming year is skipped. `lastDone` is the date the most recent clear-out
- * counted for: once it has run, that date is no longer "next", even later the
- * same day.
+ * The clear-out families should plan for, or null if every date in the
+ * coming year is skipped.
+ *
+ * Usually that's the next date on or after `today`. If the most recent date
+ * passed without a clear-out (it slipped, as the spec expects can happen), it
+ * stays "due" until one runs, so families keep being warned rather than told
+ * they have until next month. Once a clear-out has run, no date up to the one
+ * it counted for, or the day it ran, is due any more. Before the first
+ * clear-out ever (`last` is null) only coming dates count, so a date from
+ * before the app started is never shown as overdue.
  */
-export function nextClearOut(today: string, changes: readonly ClearOutChange[], lastDone: string | null): string | null {
+export function upcomingClearOut(today: string, changes: readonly ClearOutChange[], last: LastClearOut | null): UpcomingClearOut | null {
   const [year, month] = today.split("-").map(Number);
-  // Start a month back: last month's date may have been moved into this one.
+  // Start a month back: last month's date may have been moved into this one, or be overdue.
   const start = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
-  const due = clearOutDates(start, 14, changes).filter((date) => date >= today && (!lastDone || date > lastDone));
-  return due[0] ?? null;
+  const doneThrough = last ? [last.date, pacificDate(last.done_at)].sort()[1] : null;
+  const pending = clearOutDates(start, 14, changes).filter((date) => !doneThrough || date > doneThrough);
+  const past = pending.filter((date) => date < today);
+  if (last && past.length > 0) return { date: past[past.length - 1], overdue: true };
+  const next = pending.find((date) => date >= today);
+  return next ? { date: next, overdue: false } : null;
 }
 
 /** Whole days from `today` until `date` (both YYYY-MM-DD): 0 on the day itself. */
@@ -60,8 +83,10 @@ export function daysUntil(today: string, date: string): number {
 /** The donation reminder shows on the grid in the last 7 days, the clear-out day included. */
 export const REMINDER_DAYS = 7;
 
-export function showReminder(today: string, date: string | null): date is string {
-  if (!date) return false;
-  const days = daysUntil(today, date);
+/** Whether to show the donation reminder: in the last week before a clear-out, or while one is overdue. */
+export function showReminder(today: string, clearOut: UpcomingClearOut | null): clearOut is UpcomingClearOut {
+  if (!clearOut) return false;
+  if (clearOut.overdue) return true;
+  const days = daysUntil(today, clearOut.date);
   return days >= 0 && days < REMINDER_DAYS;
 }

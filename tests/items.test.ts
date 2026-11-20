@@ -11,6 +11,7 @@ import {
   markNotThere,
   unclaimItem,
   undoNotThere,
+  undoUnclaim,
   type ItemsFile,
 } from "@/server/items";
 import { memoryObjectStore } from "@/server/storage/memory";
@@ -115,6 +116,27 @@ describe("a phone's own claims", () => {
     expect(file.items[0].status).toBe("claimed");
   });
 
+  it("undoes an unclaim by reopening the same claim", () => {
+    const file = claimed();
+    unclaimItem(file, own, NOW);
+    expect(undoUnclaim(file, own, new Date(NOW.getTime() + 5000)).ok).toBe(true);
+    expect(file.items[0].status).toBe("claimed");
+    expect(file.items[0].claims).toHaveLength(1);
+    expect(file.items[0].claims[0]).toMatchObject({ id: "c-0000000001", status: "open", claimed_at: NOW.toISOString(), ended_at: null });
+  });
+
+  it("won't undo an unclaim once someone else has claimed the item", () => {
+    const file = claimed();
+    unclaimItem(file, own, NOW);
+    claimItem(file, { itemId: "L-0001", phoneId: PHONE_A, name: "Kim", claimId: "c-0000000002" }, NOW);
+    expect(undoUnclaim(file, own, NOW)).toEqual({ ok: false, reason: "taken" });
+    // Or after it changed some other way: unclaimed and claimed again by the same phone.
+    const other = claimed();
+    unclaimItem(other, own, NOW);
+    claimItem(other, { itemId: "L-0001", phoneId: PHONE_B, name: "Lee", claimId: "c-0000000003" }, NOW);
+    expect(undoUnclaim(other, own, NOW)).toEqual({ ok: false, reason: "changed" });
+  });
+
   it("marks it not in the bin, and undoes that", () => {
     const file = claimed();
     expect(markNotThere(file, own, NOW).ok).toBe(true);
@@ -179,6 +201,16 @@ describe("items.json", () => {
     await add();
     expect(await t.store.list("backups/")).toEqual(["backups/items-2026-12-08.json"]);
     expect(decode((await t.store.get("backups/items-2026-12-08.json"))!.body).items).toHaveLength(2);
+  });
+
+  it("backs up the version it actually wrote over when the write had to retry", async () => {
+    const t0 = testDeps({ start: "2026-12-07T18:00:00Z" });
+    await t0.store.put(ITEMS_KEY, new TextEncoder().encode(JSON.stringify(fileWith(1))));
+    // Someone else adds a second item just before our first try.
+    const store = racingStore(t0.store, ITEMS_KEY, 1, JSON.stringify(fileWith(2)));
+    const t = testDeps({ start: "2026-12-07T18:00:00Z", store });
+    await claim(t.deps, { itemId: "L-0001", phoneId: PHONE_B, name: "B" });
+    expect(decode((await store.get("backups/items-2026-12-07.json"))!.body).items).toHaveLength(2);
   });
 
   it("leaves another server's backup for the day alone", async () => {

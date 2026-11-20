@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type Ref } from "react";
 
 const SWIPE_PX = 60;
+
+/** The arrow just used, to put keyboard focus back on it on the next item's page. */
+let refocus: "prev" | "next" | null = null;
 
 /**
  * The item's large photo. Pinch-zoom is the browser's own. Swiping sideways,
@@ -14,6 +17,16 @@ const SWIPE_PX = 60;
 export function PhotoPane({ src, alt, prev, next }: { src: string; alt: string; prev: string | null; next: string | null }) {
   const router = useRouter();
   const start = useRef<{ x: number; y: number; at: number } | null>(null);
+  const prevArrow = useRef<HTMLAnchorElement>(null);
+  const nextArrow = useRef<HTMLAnchorElement>(null);
+
+  // Moving to the next item replaces the page, which drops focus; put it back on the arrow.
+  useEffect(() => {
+    if (!refocus) return;
+    const wanted = refocus === "prev" ? prevArrow.current : nextArrow.current;
+    (wanted ?? prevArrow.current ?? nextArrow.current)?.focus({ preventScroll: true });
+    refocus = null;
+  }, [src]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -28,8 +41,9 @@ export function PhotoPane({ src, alt, prev, next }: { src: string; alt: string; 
   }, [prev, next, router]);
 
   return (
+    // No touch-action limits: a zoomed-in photo must still pan sideways. Nothing here calls preventDefault.
     <div
-      className="relative aspect-square w-full touch-pan-y touch-pinch-zoom bg-tile sm:mx-auto sm:max-w-[560px] sm:rounded-2xl"
+      className="relative aspect-square w-full bg-tile sm:mx-auto sm:max-w-[560px] sm:rounded-2xl"
       onTouchStart={(event) => {
         // One finger and not zoomed in: a pan of a zoomed photo isn't a swipe.
         const zoomed = (window.visualViewport?.scale ?? 1) > 1.01;
@@ -49,8 +63,8 @@ export function PhotoPane({ src, alt, prev, next }: { src: string; alt: string; 
     >
       {/* eslint-disable-next-line @next/next/no-img-element -- photos are resized in the browser at upload, at most 1600 px */}
       <img src={src} alt={alt} className="absolute inset-[8%] h-[84%] w-[84%] object-contain" />
-      {prev && <Arrow href={prev} label="Previous item" side="left" />}
-      {next && <Arrow href={next} label="Next item" side="right" />}
+      {prev && <Arrow ref={prevArrow} href={prev} label="Previous item" side="left" />}
+      {next && <Arrow ref={nextArrow} href={next} label="Next item" side="right" />}
       <span aria-hidden="true" className="absolute right-3 bottom-3 inline-flex items-center gap-1.5 rounded-full bg-ink/75 px-2.5 py-1.5 text-xs font-semibold text-white sm:hidden">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="11" r="6" />
@@ -62,12 +76,14 @@ export function PhotoPane({ src, alt, prev, next }: { src: string; alt: string; 
   );
 }
 
-function Arrow({ href, label, side }: { href: string; label: string; side: "left" | "right" }) {
+function Arrow({ ref, href, label, side }: { ref: Ref<HTMLAnchorElement>; href: string; label: string; side: "left" | "right" }) {
   return (
     <Link
+      ref={ref}
       href={href}
       replace
       prefetch={false}
+      onClick={() => (refocus = side === "left" ? "prev" : "next")}
       aria-label={label}
       className={`absolute top-1/2 ${side === "left" ? "left-2.5" : "right-2.5"} flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-ink shadow-[0_2px_8px_rgba(0,0,0,0.15)] hover:text-ink`}
     >

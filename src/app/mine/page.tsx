@@ -10,7 +10,7 @@ import { config } from "@/server/config";
 import { getDeps } from "@/server/deps";
 import { loadItems } from "@/server/items";
 import { getVisitor } from "@/server/session";
-import { myItemsView, nextClearOutDay } from "@/server/views";
+import { myItemsView, nextClearOutFor } from "@/server/views";
 
 export const metadata: Metadata = { title: "My items · Lost & Found" };
 
@@ -26,7 +26,7 @@ export default async function MinePage() {
   const archive = await lastArchive(deps, file);
   const view = myItemsView(file, archive, visitor.phoneId, now);
   const open = view.current.filter((row) => row.state === "claimed").length;
-  const clearOut = nextClearOutDay(visitor.settings, file, now);
+  const clearOut = nextClearOutFor(visitor.settings, file, now);
   const name = visitor.device?.name ?? null;
 
   return (
@@ -38,7 +38,8 @@ export default async function MinePage() {
 
       {open > 0 && clearOut && (
         <p className="notice bg-warn-soft text-warn">
-          Pick up your {open === 1 ? "claimed item" : `${open} claimed items`} before {dayLabel(clearOut)}.
+          Pick up your {open === 1 ? "claimed item" : `${open} claimed items`}{" "}
+          {clearOut.overdue ? `soon: the ${dayLabel(clearOut.date)} clear-out is overdue` : `before ${dayLabel(clearOut.date)}`}.
         </p>
       )}
 

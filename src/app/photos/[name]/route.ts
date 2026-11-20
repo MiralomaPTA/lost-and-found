@@ -4,8 +4,8 @@ import { isPhotoName, PHOTO_CACHE_CONTROL, photoContentType, photoKey } from "@/
 
 /**
  * A photo or thumbnail from the bucket. The names are random, so there's no
- * code check here, and the CDN can keep each one for good: the bucket is read
- * only a few times per photo (spec: *Photos*).
+ * code check here, and the CDN can keep each one for a day: the bucket is
+ * read about once a day per photo (spec: *Photos*).
  */
 export async function GET(_request: NextRequest, context: RouteContext<"/photos/[name]">) {
   const { name } = await context.params;

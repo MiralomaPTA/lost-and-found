@@ -133,6 +133,38 @@ describe("old links", () => {
     expect(await findArchivedItem(t.deps, current, "L-0003")).toBeNull();
     expect(await findArchivedItem(t.deps, current, "L-0009")).toBeNull();
   });
+
+  it("searches newest archive first and stops once the archives are older than the ID", async () => {
+    const t = testDeps();
+    const put = (date: string, file: ItemsFile, ids: string[]) => {
+      const archive = archiveOf(file, date);
+      archive.items = archive.items.map((item, i) => ({ ...item, id: ids[i] }));
+      return t.store.put(archiveKey(date), new TextEncoder().encode(JSON.stringify(archive)));
+    };
+    await put("2026-09-11", bin([{ daysAgo: 90 }]), ["L-0001"]);
+    const oct = bin([{ daysAgo: 60 }, { daysAgo: 59, type: "Hoodie" }]);
+    oct.items[1].status = "claimed";
+    await put("2026-10-09", oct, ["L-0002", "L-0003"]);
+    // L-0004 was never saved (a number can be skipped).
+    await put("2026-11-13", bin([{ daysAgo: 30 }, { daysAgo: 29 }]), ["L-0005", "L-0006"]);
+    const current = { ...emptyItemsFile(), next_number: 8, last_clear_out: { date: "2026-11-13", done_at: "2026-11-13T23:00:00Z" } };
+    current.items = bin([{ daysAgo: 0 }]).items.map((item) => ({ ...item, id: "L-0007" }));
+
+    const reads: string[] = [];
+    const get = t.store.get.bind(t.store);
+    t.store.get = async (key) => {
+      reads.push(key);
+      return get(key);
+    };
+    const claimedOne = await findArchivedItem(t.deps, current, "L-0003");
+    expect(archivedItemView(claimedOne!.item, settings)).toMatchObject({ kind: "archived", type: "Hoodie", donatedOn: null });
+    expect(reads).toEqual(["archive/2026-11-13.json", "archive/2026-10-09.json"]);
+    reads.length = 0;
+    // Newer than everything in October's archive and not in November's: September is never read.
+    expect(await findArchivedItem(t.deps, current, "L-0004")).toBeNull();
+    expect(reads).toEqual(["archive/2026-11-13.json", "archive/2026-10-09.json"]);
+    expect((await findArchivedItem(t.deps, current, "L-0001"))?.archive.date).toBe("2026-09-11");
+  });
 });
 
 describe("My items", () => {
@@ -164,7 +196,7 @@ describe("My items", () => {
       ["L-0001", "claimed"],
     ]);
     expect(view.current[0]).toMatchObject({ claimed: "Claimed yesterday", notThere: "today", href: null });
-    expect(view.current[1]).toMatchObject({ title: "Jacket · Navy", claimed: "Claimed Fri, Dec 4", href: "/items/L-0001" });
+    expect(view.current[1]).toMatchObject({ type: "Jacket", title: "Jacket · Navy", claimed: "Claimed Fri, Dec 4", href: "/items/L-0001" });
     expect(view.pickedUp).toEqual([expect.objectContaining({ itemId: "L-0001", state: "picked up", thumb: null })]);
     expect(view.clearOutDate).toBe("Nov 13");
     expect(JSON.stringify(view)).not.toMatch(/[abc]{32}/);

@@ -11,7 +11,7 @@ import { gridSearch, hasFilters, NO_FILTERS, parseGridQuery } from "@/lib/grid-q
 import { config } from "@/server/config";
 import { getDeps } from "@/server/deps";
 import { getItemsFile, getVisitor } from "@/server/session";
-import { activeColors, activeTypes, cardView, gridItems, nextClearOutDay, openClaimCount } from "@/server/views";
+import { activeColors, activeTypes, cardView, gridItems, nextClearOutFor, openClaimItemIds } from "@/server/views";
 
 /** The first-visit code box, then the grid of everything in the bin (spec section 1). */
 export default async function Home({ searchParams }: PageProps<"/">) {
@@ -24,14 +24,14 @@ export default async function Home({ searchParams }: PageProps<"/">) {
   const query = parseGridQuery(await searchParams);
   const list = gridItems(file, query, now);
   const inBin = file.items.filter((item) => item.status === "available").length;
-  const openClaims = openClaimCount(file, visitor.phoneId);
-  const clearOut = nextClearOutDay(settings, file, now);
+  const openClaimIds = openClaimItemIds(file, visitor.phoneId);
+  const clearOut = nextClearOutFor(settings, file, now);
 
   return (
-    <ClaimsProvider hasName={Boolean(visitor.device?.name)} openClaims={openClaims} bin={settings.bin_description} contactEmail={config.contactEmail}>
+    <ClaimsProvider hasName={Boolean(visitor.device?.name)} openClaimIds={openClaimIds} bin={settings.bin_description} contactEmail={config.contactEmail}>
       <h1 className="sr-only">Everything in the lost-and-found bin</h1>
       <div className="-mx-4 -mt-6 mb-3 flex flex-col sm:mx-0 sm:mt-0 sm:gap-3">
-        {showReminder(pacificDate(now), clearOut) && <PickupReminder day={dayLabel(clearOut)} openClaims={openClaims} />}
+        {showReminder(pacificDate(now), clearOut) && <PickupReminder day={dayLabel(clearOut.date)} overdue={clearOut.overdue} openClaims={openClaimIds.length} />}
         <section aria-label="Sort and filter" className="border-b border-line bg-white py-2.5 sm:rounded-2xl sm:border">
           <FilterBar query={query} types={activeTypes(settings)} colors={activeColors(settings)} />
         </section>
@@ -63,7 +63,7 @@ export default async function Home({ searchParams }: PageProps<"/">) {
           </ul>
         </>
       )}
-      <BottomNav openClaims={openClaims} />
+      <BottomNav openClaims={openClaimIds.length} />
     </ClaimsProvider>
   );
 }

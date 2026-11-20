@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
-import { claimAction, notThereAction, undoNotThereAction, unclaimAction } from "@/app/actions/claims";
+import { useEffect, useRef, useState, useTransition, type FocusEvent, type ReactNode } from "react";
+import { notThereAction, undoNotThereAction, undoUnclaimAction, unclaimAction, type ChangeResult } from "@/app/actions/claims";
 import { forgetClaimHere } from "@/components/claims/ClaimsProvider";
 import { forgetGridOrigin } from "@/components/nav-origin";
 import type { MyClaimState, MyClaimView } from "@/server/views";
 
 const OFFLINE = "Couldn't reach the lost and found. Check the connection and try again.";
-const BAR_MS = 8_000;
+const BAR_MS = 10_000;
 
 const BADGES: Record<MyClaimState, { text: string; className: string }> = {
   claimed: { text: "Claimed", className: "bg-brand-soft text-brand-dark" },
@@ -20,31 +20,62 @@ const BADGES: Record<MyClaimState, { text: string; className: string }> = {
 
 interface Bar {
   text: string;
-  undo: () => Promise<{ ok: true } | { ok: false; message: string }>;
+  claimId: string;
+  undo: () => Promise<ChangeResult>;
 }
 
 /**
  * The claims made from this phone, with *Unclaim* and *It wasn't there* on
- * open ones. Each change refreshes the list and offers *Undo* for a few
- * seconds.
+ * open ones. Each change refreshes the list and offers *Undo* in a bar,
+ * which takes keyboard focus (the pressed button is gone) and stays while
+ * it's pointed at or keyboard-focused.
  */
 export function MyClaimsList({ rows, contactEmail }: { rows: MyClaimView[]; contactEmail: string }) {
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
   const [busy, setBusy] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ claimId: string | null; message: string } | null>(null);
   const [bar, setBar] = useState<Bar | null>(null);
+  const [paused, setPaused] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const list = useRef<HTMLUListElement>(null);
+  const barElement = useRef<HTMLDivElement>(null);
+  const undoButton = useRef<HTMLButtonElement>(null);
+  /** The row to focus once the refreshed list arrives, after an undo. */
+  const focusRow = useRef<string | null>(null);
+  const locked = busy !== null || refreshing;
 
   // An item page opened from here isn't a trip from the grid.
   useEffect(() => forgetGridOrigin(), []);
 
   useEffect(() => {
-    if (!bar) return;
-    const timer = setTimeout(() => setBar(null), BAR_MS);
-    return () => clearTimeout(timer);
+    if (bar) undoButton.current?.focus();
   }, [bar]);
 
+  useEffect(() => {
+    if (!bar || paused) return;
+    const timer = setTimeout(() => {
+      // Don't drop focus to the page when the bar goes.
+      if (barElement.current?.contains(document.activeElement)) list.current?.focus();
+      setBar(null);
+    }, BAR_MS);
+    return () => clearTimeout(timer);
+  }, [bar, paused]);
+
+  useEffect(() => {
+    const claimId = focusRow.current;
+    if (!claimId || refreshing) return;
+    const row = list.current?.querySelector<HTMLElement>(`[data-claim="${claimId}"]`);
+    if (!row) return;
+    focusRow.current = null;
+    (row.querySelector("button") ?? list.current)?.focus();
+  }, [rows, refreshing]);
+
+  const announce = (text: string) => setAnnouncement((previous) => (previous === text ? `${text} ` : text));
+  const refresh = () => startRefresh(() => router.refresh());
+
   async function change(row: MyClaimView, kind: "unclaim" | "not there") {
-    if (busy) return;
+    if (locked) return;
     setBusy(row.claimId);
     setProblem(null);
     try {
@@ -54,13 +85,15 @@ export function MyClaimsList({ rows, contactEmail }: { rows: MyClaimView[]; cont
         return;
       }
       forgetClaimHere(row.itemId);
-      const type = row.title.split(" · ")[0];
-      setBar(
-        kind === "unclaim"
-          ? { text: `${type} unclaimed. It's back on the grid.`, undo: () => claimAction(row.itemId) }
-          : { text: `${type} marked as not in the bin.`, undo: () => undoNotThereAction(row.itemId, row.claimId) },
-      );
-      router.refresh();
+      const text = kind === "unclaim" ? `${row.type} unclaimed. It's back on the grid.` : `${row.type} marked as not in the bin.`;
+      setPaused(false);
+      setBar({
+        text,
+        claimId: row.claimId,
+        undo: () => (kind === "unclaim" ? undoUnclaimAction(row.itemId, row.claimId) : undoNotThereAction(row.itemId, row.claimId)),
+      });
+      announce(text);
+      refresh();
     } catch {
       setProblem({ claimId: row.claimId, message: OFFLINE });
     } finally {
@@ -70,26 +103,40 @@ export function MyClaimsList({ rows, contactEmail }: { rows: MyClaimView[]; cont
 
   async function undo(current: Bar) {
     setBar(null);
+    focusRow.current = current.claimId;
     try {
       const result = await current.undo();
-      if (!result.ok) setProblem({ claimId: null, message: result.message });
-      router.refresh();
+      if (!result.ok) {
+        focusRow.current = null;
+        setProblem({ claimId: null, message: result.message });
+        list.current?.focus();
+      } else {
+        announce("Undone.");
+      }
+      refresh();
     } catch {
+      focusRow.current = null;
       setProblem({ claimId: null, message: OFFLINE });
     }
   }
 
+  // The bar waits while someone is pointing at it or has tabbed to it, not when focus was only moved there.
+  const pauseOnKeyboardFocus = (event: FocusEvent<HTMLElement>) => setPaused(event.target.matches(":focus-visible"));
+
   return (
     <>
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
       {problem && problem.claimId === null && (
         <p role="alert" className="notice bg-bad-soft text-bad">
           {problem.message}
         </p>
       )}
       {rows.length > 0 && (
-        <ul className="card flex flex-col overflow-hidden">
+        <ul ref={list} tabIndex={-1} className="card flex flex-col overflow-hidden outline-none">
           {rows.map((row) => (
-            <li key={row.claimId} className="flex gap-3 border-b border-rule p-3.5 last:border-b-0">
+            <li key={row.claimId} data-claim={row.claimId} className="flex gap-3 border-b border-rule p-3.5 last:border-b-0">
               <Thumb row={row} />
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <div className="flex items-start justify-between gap-2">
@@ -102,11 +149,11 @@ export function MyClaimsList({ rows, contactEmail }: { rows: MyClaimView[]; cont
                 </div>
                 {row.state === "claimed" && (
                   <div className="flex flex-wrap gap-2">
-                    <ActionButton busy={busy === row.claimId} onClick={() => change(row, "unclaim")}>
-                      Unclaim
+                    <ActionButton busy={locked} onClick={() => change(row, "unclaim")}>
+                      Unclaim<span className="sr-only">, {row.label.toLowerCase()}</span>
                     </ActionButton>
-                    <ActionButton busy={busy === row.claimId} onClick={() => change(row, "not there")}>
-                      It wasn&apos;t there
+                    <ActionButton busy={locked} onClick={() => change(row, "not there")}>
+                      It wasn&apos;t there<span className="sr-only">, {row.label.toLowerCase()}</span>
                     </ActionButton>
                   </div>
                 )}
@@ -130,11 +177,20 @@ export function MyClaimsList({ rows, contactEmail }: { rows: MyClaimView[]; cont
       )}
       {bar && (
         <div
-          role="status"
+          ref={barElement}
+          onMouseEnter={() => setPaused(true)}
+          onMouseLeave={() => setPaused(false)}
+          onFocus={pauseOnKeyboardFocus}
+          onBlur={() => setPaused(false)}
           className="fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-30 mx-auto flex max-w-md items-center gap-2.5 rounded-[14px] bg-ink py-1.5 pr-1.5 pl-3.5 text-white shadow-[0_8px_24px_rgba(0,0,0,0.2)]"
         >
           <span className="flex-1 text-sm leading-snug">{bar.text}</span>
-          <button type="button" onClick={() => undo(bar)} className="h-11 flex-none cursor-pointer rounded-[10px] px-3.5 text-[15px] font-bold text-[#9DB4FF]">
+          <button
+            ref={undoButton}
+            type="button"
+            onClick={() => undo(bar)}
+            className="h-11 flex-none cursor-pointer rounded-[10px] px-3.5 text-[15px] font-bold text-[#9DB4FF]"
+          >
             Undo
           </button>
         </div>

@@ -18,7 +18,7 @@ export function ItemCard({ card }: { card: CardView }) {
         href={card.href}
         prefetch={false}
         onClick={rememberGridOrigin}
-        aria-label={`Open ${card.label}`}
+        aria-label={`Open ${card.label}${card.hasName ? ", has a name" : ""}`}
         className={`relative block aspect-square bg-tile transition-opacity ${dim}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- thumbnails are made in the browser at upload, already 400 px */}

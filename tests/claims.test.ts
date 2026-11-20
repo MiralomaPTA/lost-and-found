@@ -20,7 +20,7 @@ vi.mock("next/cache", () => ({ refresh: () => {} }));
 vi.mock("next/server", () => ({ after: (task: () => unknown) => void Promise.resolve().then(task) }));
 vi.mock("@/server/deps", () => ({ getDeps: async () => (h.deps.current as { deps: unknown }).deps }));
 
-import { claimAction, notThereAction, undoNotThereAction, unclaimAction } from "@/app/actions/claims";
+import { claimAction, notThereAction, undoNotThereAction, undoUnclaimAction, unclaimAction } from "@/app/actions/claims";
 import { GET as getPhoto } from "@/app/photos/[name]/route";
 import { CODE_COOKIE, PHONE_COOKIE } from "@/server/cookies";
 import { addItem, changeItems, loadItems } from "@/server/items";
@@ -87,8 +87,27 @@ describe("claiming", () => {
     // A second tap on the same phone is fine.
     expect(await claimAction("L-0001")).toMatchObject({ ok: true });
     await asPhone(PHONE_C);
-    expect(await claimAction("L-0001")).toEqual({ ok: false, reason: "taken", message: "Someone just claimed this." });
+    expect(await claimAction("L-0001")).toEqual({ ok: false, reason: "taken", message: "Someone just claimed this.", named: true });
     expect((await activity()).filter((a) => a.action === "claimed")).toHaveLength(1);
+  });
+
+  it("keeps the name when the first claim doesn't go through, and says so", async () => {
+    await setDeviceName(t.deps, PHONE_C, "Kim family");
+    await asPhone(PHONE_C);
+    await claimAction("L-0001");
+    await asPhone(PHONE_B);
+    expect(await claimAction("L-0001", "Lee family")).toMatchObject({ ok: false, reason: "taken", named: true });
+    expect((await getDevice(t.deps, PHONE_B))?.name).toBe("Lee family");
+    // The next claim needs no name.
+    expect(await claimAction("L-0002")).toMatchObject({ ok: true });
+  });
+
+  it("uses a name typed in the sheet even if the phone had one", async () => {
+    await setDeviceName(t.deps, PHONE_B, "Lee");
+    await asPhone(PHONE_B);
+    expect(await claimAction("L-0001", "Lee family, Rm 12")).toMatchObject({ ok: true });
+    expect((await getDevice(t.deps, PHONE_B))?.name).toBe("Lee family, Rm 12");
+    expect((await loadItems(t.deps, { fresh: true })).items[0].claims[0].name).toBe("Lee family, Rm 12");
   });
 
   it("turns away IDs that aren't items", async () => {
@@ -114,6 +133,26 @@ describe("a phone's own claims", () => {
     expect(await unclaimAction("L-0001", claimId)).toEqual({ ok: true });
     expect((await loadItems(t.deps, { fresh: true })).items[0].status).toBe("available");
     expect((await unclaimAction("L-0001", claimId)).ok).toBe(false);
+  });
+
+  it("undoes an unclaim, keeping the original claim", async () => {
+    const claimId = await claimedBy(PHONE_B);
+    await unclaimAction("L-0001", claimId);
+    expect(await undoUnclaimAction("L-0001", claimId)).toEqual({ ok: true });
+    const item = (await loadItems(t.deps, { fresh: true })).items[0];
+    expect(item.status).toBe("claimed");
+    expect(item.claims.map((c) => [c.id, c.status])).toEqual([[claimId, "open"]]);
+    expect((await activity()).map((a) => a.action).sort()).toEqual(["claimed", "unclaim_undone", "unclaimed"]);
+  });
+
+  it("can't undo an unclaim after someone else claims the item", async () => {
+    const claimId = await claimedBy(PHONE_B);
+    await unclaimAction("L-0001", claimId);
+    await setDeviceName(t.deps, PHONE_C, "Kim family");
+    await asPhone(PHONE_C);
+    await claimAction("L-0001");
+    await asPhone(PHONE_B);
+    expect(await undoUnclaimAction("L-0001", claimId)).toEqual({ ok: false, reason: "taken", message: "Someone else has claimed it since." });
   });
 
   it("won't let another phone close it, even with the claim ID", async () => {
@@ -151,7 +190,7 @@ describe("photos", () => {
     const response = await get(name);
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/jpeg");
-    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=86400");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
     expect(new Uint8Array(await response.arrayBuffer())).toEqual(new Uint8Array([0xff, 0xd8, 0xff]));
   });
