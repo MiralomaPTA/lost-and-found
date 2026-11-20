@@ -14,11 +14,14 @@ const colorSchema = z.object({
   active: z.boolean(),
 });
 
+/** A calendar day, YYYY-MM-DD. Checked on every write, since the header shows these dates on every page. */
+const day = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/);
+
 const clearOutChangeSchema = z.object({
   /** The second Friday this change is about, YYYY-MM-DD. */
-  date: z.string(),
+  date: day,
   change: z.enum(["moved", "skipped"]),
-  moved_to: z.string().nullable(),
+  moved_to: day.nullable(),
   note: z.string().nullable(),
 });
 

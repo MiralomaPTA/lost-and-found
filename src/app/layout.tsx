@@ -2,8 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Figtree } from "next/font/google";
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
+import { dayLabel } from "@/lib/dates";
 import { config } from "@/server/config";
-import { getVisitor } from "@/server/session";
+import { getDeps } from "@/server/deps";
+import { getItemsFile, getVisitor } from "@/server/session";
+import { nextClearOutFor } from "@/server/views";
 import "./globals.css";
 
 const figtree = Figtree({ variable: "--font-figtree", subsets: ["latin"] });
@@ -17,17 +20,27 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const visitor = await getVisitor();
+  const clearOut = visitor.canBrowse ? nextClearOutFor(visitor.settings, await getItemsFile(), (await getDeps()).now()) : null;
   return (
     <html lang="en" className={`${figtree.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col font-sans">
+      {/* Pages with the bottom bar get room for it, so the footer isn't hidden underneath. */}
+      <body className="flex min-h-full flex-col font-sans has-[[data-bottom-nav]]:pb-[calc(4rem+env(safe-area-inset-bottom))]">
         <header className="border-b border-line bg-white">
           <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
             <Brand />
-            {visitor.isAdmin && (
-              <Link href="/admin/settings" className="admin-badge no-underline hover:text-ink">
-                Admin
-              </Link>
-            )}
+            <div className="flex items-center gap-3">
+              {visitor.isAdmin && (
+                <Link href="/admin/settings" className="admin-badge no-underline hover:text-ink">
+                  Admin
+                </Link>
+              )}
+              {clearOut && (
+                <div className="flex flex-col items-end">
+                  <span className="text-[11px] font-bold tracking-[0.04em] text-muted uppercase">Next clear-out</span>
+                  <span className="text-sm font-bold">{clearOut.overdue ? "Any day now" : dayLabel(clearOut.date)}</span>
+                </div>
+              )}
+            </div>
           </div>
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-10">{children}</main>

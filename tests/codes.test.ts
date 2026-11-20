@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { adminCodeProblem, formatTries, isLocked, matchCode, normalizeCode, parseTries, recordWrongCode, schoolCodeProblem } from "@/server/codes";
 import { becomeAdmin, cleanName, deviceKey, getDevice, hasSchoolCode, isAdminDevice, leaveAdmin, newPhoneId, schoolCodeProof, setDeviceName, touchDevice } from "@/server/phones";
-import { changeAdminCode, changeSchoolCode, loadSettings, SETTINGS_KEY, type Settings } from "@/server/settings";
+import { changeAdminCode, changeSchoolCode, loadSettings, SETTINGS_KEY, settingsSchema, startingSettings, type Settings } from "@/server/settings";
 import { racingStore, testDeps } from "./helpers";
 import { memoryObjectStore } from "@/server/storage/memory";
 
@@ -179,5 +179,16 @@ describe("phones", () => {
     await Promise.all([touchDevice(deps, device), touchDevice(deps, device), touchDevice(deps, device)]);
     expect(store.saved()).toBe(2);
     expect((await getDevice(deps, phone))?.last_seen_at).toBe("2026-12-08T17:00:00.000Z");
+  });
+});
+
+describe("settings.json", () => {
+  it("refuses clear-out dates that aren't YYYY-MM-DD, since every page shows them", () => {
+    const base = startingSettings(new Date("2026-12-07T16:00:00Z"), null);
+    const withChange = (date: string, moved_to: string | null) => ({ ...base, clear_out_changes: [{ date, change: "moved", moved_to, note: null }] });
+    expect(settingsSchema.safeParse(withChange("2026-12-11", "2026-12-18")).success).toBe(true);
+    expect(settingsSchema.safeParse(withChange("2026-12-11", "Dec 18")).success).toBe(false);
+    expect(settingsSchema.safeParse(withChange("2026-12-11", "2026-13-01")).success).toBe(false);
+    expect(settingsSchema.safeParse(withChange("12/11/2026", null)).success).toBe(false);
   });
 });
