@@ -1,60 +1,69 @@
 import Link from "next/link";
-import { CodeForm } from "@/components/CodeForm";
-import { getVisitor } from "@/server/session";
+import { BottomNav } from "@/components/BottomNav";
+import { ClaimsProvider } from "@/components/claims/ClaimsProvider";
+import { CodeGate } from "@/components/CodeGate";
+import { FilterBar } from "@/components/grid/FilterBar";
+import { ItemCard } from "@/components/grid/ItemCard";
+import { PickupReminder } from "@/components/grid/PickupReminder";
+import { showReminder } from "@/lib/clear-out";
+import { dayLabel, pacificDate } from "@/lib/dates";
+import { gridSearch, hasFilters, NO_FILTERS, parseGridQuery } from "@/lib/grid-query";
+import { config } from "@/server/config";
+import { getDeps } from "@/server/deps";
+import { getItemsFile, getVisitor } from "@/server/session";
+import { activeColors, activeTypes, cardView, gridItems, nextClearOutDay, openClaimCount } from "@/server/views";
 
-const STEPS = [
-  <>Scroll the photos</>,
-  <>
-    Tap <strong>This is mine</strong>
-  </>,
-  <>Pick it up from the bin</>,
-];
-
-export default async function Home() {
+/** The first-visit code box, then the grid of everything in the bin (spec section 1). */
+export default async function Home({ searchParams }: PageProps<"/">) {
   const visitor = await getVisitor();
   if (!visitor.canBrowse) return <CodeGate isOpen={visitor.isOpen} />;
 
-  // The grid arrives in the next pull request.
-  return (
-    <div className="flex flex-col gap-3">
-      <h1 className="text-[28px] leading-tight font-extrabold">You&apos;re in</h1>
-      <p className="max-w-prose text-base leading-relaxed text-body">
-        Photos of everything in the lost-and-found bin will show up here soon. This phone remembers the code, so you won&apos;t be asked again.
-      </p>
-      {visitor.isAdmin && (
-        <p className="text-base">
-          <Link href="/admin/settings">Admin settings</Link>
-        </p>
-      )}
-    </div>
-  );
-}
+  const { settings } = visitor;
+  const now = (await getDeps()).now();
+  const file = await getItemsFile();
+  const query = parseGridQuery(await searchParams);
+  const list = gridItems(file, query, now);
+  const inBin = file.items.filter((item) => item.status === "available").length;
+  const openClaims = openClaimCount(file, visitor.phoneId);
+  const clearOut = nextClearOutDay(settings, file, now);
 
-/** The first-visit screen: the school code (or the admin code) and nothing else. */
-function CodeGate({ isOpen }: { isOpen: boolean }) {
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-7">
-      <div className="flex flex-col gap-2.5">
-        <h1 className="text-[30px] leading-[1.12] font-extrabold tracking-tight">Look through the lost-and-found bin from home</h1>
-        <p className="text-base leading-relaxed text-muted">
-          Everything that lands in the bin gets photographed and posted here. If something is yours, tap it and pick it up. Found something? Add it.
-        </p>
+    <ClaimsProvider hasName={Boolean(visitor.device?.name)} openClaims={openClaims} bin={settings.bin_description} contactEmail={config.contactEmail}>
+      <h1 className="sr-only">Everything in the lost-and-found bin</h1>
+      <div className="-mx-4 -mt-6 mb-3 flex flex-col sm:mx-0 sm:mt-0 sm:gap-3">
+        {showReminder(pacificDate(now), clearOut) && <PickupReminder day={dayLabel(clearOut)} openClaims={openClaims} />}
+        <section aria-label="Sort and filter" className="border-b border-line bg-white py-2.5 sm:rounded-2xl sm:border">
+          <FilterBar query={query} types={activeTypes(settings)} colors={activeColors(settings)} />
+        </section>
       </div>
-      {!isOpen && (
-        <p role="status" className="notice bg-warn-soft text-warn">
-          The lost and found isn&apos;t open yet. The PTA newsletter will say when it is.
-        </p>
+
+      {inBin === 0 ? (
+        <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+          <p className="text-base font-bold">The bin is empty right now</p>
+          <p className="max-w-sm text-sm text-muted">New things show up here as soon as someone photographs them.</p>
+        </div>
+      ) : list.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+          <p className="text-base font-bold">Nothing matches these filters</p>
+          <Link href={`/${gridSearch({ ...NO_FILTERS, sort: query.sort })}`} replace scroll={false} className="btn-secondary btn-small">
+            Clear filters
+          </Link>
+        </div>
+      ) : (
+        <>
+          <p role="status" className="mb-2 text-[13px] font-semibold text-muted">
+            {hasFilters(query) ? `${list.length} of ${inBin} items` : `${inBin} ${inBin === 1 ? "item" : "items"} in the bin`}
+          </p>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {list.map((item) => (
+              <li key={item.id} className="flex">
+                <ItemCard card={cardView(item, settings, now, query)} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-      <ol className="flex flex-col gap-3">
-        {STEPS.map((step, i) => (
-          <li key={i} className="flex items-center gap-3 text-[15px] font-semibold">
-            <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand-soft text-sm font-extrabold text-brand-dark">{i + 1}</span>
-            <span>{step}</span>
-          </li>
-        ))}
-      </ol>
-      <CodeForm mode="school" />
-      <p className="text-center text-[13px] text-muted">No account or sign-in. This phone remembers the code.</p>
-    </div>
+      <BottomNav openClaims={openClaims} />
+    </ClaimsProvider>
   );
 }

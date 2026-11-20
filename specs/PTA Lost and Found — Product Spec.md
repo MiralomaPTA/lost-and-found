@@ -260,12 +260,12 @@ The bucket, "miraloma-pta-lost-and-found":
 
 | Object | Holds | Written when |
 | --- | --- | --- |
-| `items.json` | Every item since the last clear-out, with its claims, plus the next item number. About 100 KB at peak | Any add, tag change, photo replacement, claim, unclaim, undo, removal or restore, with a safe write (below) |
+| `items.json` | Every item since the last clear-out, with its claims, plus the next item number and which clear-out the list started after. About 100 KB at peak | Any add, tag change, photo replacement, claim, unclaim, undo, removal or restore, with a safe write (below) |
 | `devices/<id>.json` | One phone | The phone changes its name or enters the admin code, or once a day for `last_seen_at` |
 | `settings.json` | The school code, the admin code and other settings, the types and colors lists, and clear-out dates an admin moved or skipped | An admin changes something |
 | `activity/<date>/<time>-<id>.json` | One action | Every action, as a new file that is never rewritten |
 | `archive/<clear-out date>.json` | Every item that clear-out closed, without photos, and the counts | Once, by that clear-out |
-| `backups/items-<date>.json` | A copy of `items.json` | The first write of each day |
+| `backups/items-<date>.json` | A copy of `items.json` as it was before that day's first write | The first write of each day |
 | `photos/<random>.jpg`, `photos/<random>-thumb.jpg` | Each item's photo and thumbnail | An upload; deleted by the clear-out, or when an admin replaces the photo |
 
 | Record | Fields |

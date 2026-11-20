@@ -5,6 +5,7 @@ import { cache } from "react";
 import { formatTries, parseTries, type Tries } from "@/server/codes";
 import { CODE_COOKIE, cookieOptions, PHONE_COOKIE, TRIES_COOKIE } from "@/server/cookies";
 import { getDeps, type Deps } from "@/server/deps";
+import { loadItems, type ItemsFile } from "@/server/items";
 import { getDevice, hasSchoolCode, isAdminDevice, isPhoneId, newPhoneId, schoolCodeProof, touchDevice, type Device } from "@/server/phones";
 import { loadSettings, type Settings } from "@/server/settings";
 
@@ -36,6 +37,9 @@ export const getVisitor = cache(async (): Promise<Visitor> => {
   const hasCode = phoneId ? hasSchoolCode(settings, phoneId, jar.get(CODE_COOKIE)?.value) : false;
   return { settings, phoneId, device, isOpen: Boolean(settings.school_code), isAdmin, canBrowse: isAdmin || hasCode };
 });
+
+/** items.json, read once per request (a few seconds' cache across requests). */
+export const getItemsFile = cache(async (): Promise<ItemsFile> => loadItems(await getDeps()));
 
 export type AdminVisitor = Visitor & { phoneId: string; device: Device };
 

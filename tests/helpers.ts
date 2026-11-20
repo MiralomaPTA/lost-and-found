@@ -55,3 +55,16 @@ export function racingStore(
     },
   };
 }
+
+/** Phone IDs for tests: 32 hex characters, like the real ones. */
+export const PHONE_A = "a".repeat(32);
+export const PHONE_B = "b".repeat(32);
+export const PHONE_C = "c".repeat(32);
+
+let photoCounter = 0;
+
+/** A photo name pair like the app's. */
+export function photoNames(): { photo: string; thumb: string } {
+  const id = (++photoCounter).toString(16).padStart(32, "0");
+  return { photo: `${id}.jpg`, thumb: `${id}-thumb.jpg` };
+}
