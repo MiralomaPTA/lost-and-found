@@ -34,6 +34,13 @@ export const config = {
   /** Shown to people who need a person: "Questions? Email …". */
   contactEmail: env.CONTACT_EMAIL ?? "lostandfound@miralomasf.com",
   localDataDir: env.LOCAL_DATA_DIR ?? ".data",
+  /** How long a read of a JSON file is reused. This server's own writes refresh it at once. */
+  docCacheMs: 3000,
+  /**
+   * The first admin code, copied to settings.json when it has none. Development
+   * gets a default so the admin pages can be tried without setup.
+   */
+  initialAdminCode: env.INITIAL_ADMIN_CODE || (isProduction ? null : "local admin code"),
   timeZone: "America/Los_Angeles",
   isProduction,
 };
