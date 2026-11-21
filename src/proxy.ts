@@ -21,5 +21,5 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Not static files or photos: a Set-Cookie header would stop the CDN from caching them.
-  matcher: ["/((?!_next/static|_next/image|photos/|icon.svg|favicon.ico|robots.txt).*)"],
+  matcher: ["/((?!_next/static|_next/image|photos/|icon.png|apple-icon.png|favicon.ico|robots.txt).*)"],
 };
