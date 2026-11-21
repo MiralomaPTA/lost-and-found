@@ -4,7 +4,7 @@ A small Next.js app that puts the school's lost-and-found bin online. Anyone wit
 
 Everything the app keeps lives in one Cloudflare R2 bucket: a few JSON files and the photos. The app runs on Vercel, like [reimburse-me](https://github.com/MiralomaPTA/reimburse-me) and [asset-manager](https://github.com/MiralomaPTA/asset-manager), and sends no email.
 
-**Status: Phase 1 in progress.** Done: the school code, the admin code and remembered phones; the grid, the item page, claiming and *My items*; adding items (bulk add from the live camera, and one from a photo with a crop box); *Fix tags*; the admin section's *Items* and *Claims* (remove, restore, replace photo, undo claims, reported missing). Next: the *Clear out* tab and the rest of Settings, then the help page.
+**Status: Phase 1 in progress.** Done: the school code, the admin code and remembered phones; the grid, the item page, claiming and *My items*; adding items (bulk add from the live camera, and one from a photo with a crop box); *Fix tags*; the admin section's *Items* and *Claims* (remove, restore, replace photo, undo claims, reported missing); the *Clear out* tab (the clear-out itself, moving and skipping dates, past clear-outs and their CSVs) and the rest of Settings (where the bin is, the types and colors lists, the CSV of the current list). Next: the help page and polish.
 
 ## Run it locally
 

@@ -1,7 +1,9 @@
 import { upcomingClearOut, type UpcomingClearOut } from "@/lib/clear-out";
 import { ageLabel, dateLabel, daysBetween, pacificDate, relativeDayLabel, shortDate, shortDayLabel } from "@/lib/dates";
 import { gridSearch, type GridQuery } from "@/lib/grid-query";
+import { swatchOf, type Swatch } from "@/lib/swatch";
 import type { Archive } from "@/server/archives";
+import { countingFrom } from "@/server/clear-out";
 import { type Item, type ItemsFile } from "@/server/items";
 import { photoUrl } from "@/server/photos";
 import type { Settings } from "@/server/settings";
@@ -12,26 +14,13 @@ import type { Settings } from "@/server/settings";
  * (the number is only in the item page's address).
  */
 
-const MULTICOLOR = "conic-gradient(#D63B33, #F2C230, #3E9B5C, #2F6FD6, #7C5CC4, #D63B33)";
 const UNKNOWN_SWATCH = "#C9CED8";
 
-export interface Swatch {
-  /** A CSS background. */
-  background: string;
-  /** Light colors (white, tan…) need a darker outline to show up. */
-  light: boolean;
-}
+export type { Swatch };
 
 export function swatchFor(settings: Settings, colorName: string): Swatch {
   const color = settings.colors.find((c) => c.name === colorName);
-  if (!color) return { background: UNKNOWN_SWATCH, light: false };
-  if (color.swatch === "multicolor") return { background: MULTICOLOR, light: false };
-  return { background: color.swatch, light: luminance(color.swatch) > 0.8 };
-}
-
-function luminance(hex: string): number {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return color ? swatchOf(color.swatch) : { background: UNKNOWN_SWATCH, light: false };
 }
 
 /** "Navy jacket", for alt text. */
@@ -92,9 +81,13 @@ export function cardView(item: Item, settings: Settings, now: Date, query: GridQ
   };
 }
 
-/** The clear-out families should plan for, for the header and the donation reminder. */
+/**
+ * The clear-out families should plan for, for the header and the donation
+ * reminder. Before the first clear-out, dates count from the first add, so
+ * a first clear-out that slips shows as overdue too.
+ */
 export function nextClearOutFor(settings: Settings, file: ItemsFile, now: Date): UpcomingClearOut | null {
-  return upcomingClearOut(pacificDate(now), settings.clear_out_changes, file.last_clear_out);
+  return upcomingClearOut(pacificDate(now), settings.clear_out_changes, countingFrom(file));
 }
 
 /**

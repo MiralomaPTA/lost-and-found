@@ -1,15 +1,29 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { leaveAdminAction } from "@/app/actions/codes";
+import { BinDescriptionForm } from "@/components/admin/BinDescriptionForm";
+import { TagListEditor, type TagEntry } from "@/components/admin/TagListEditor";
 import { CodeSettingForm } from "@/components/CodeSettingForm";
 import { shortDate } from "@/lib/dates";
+import { getDeps } from "@/server/deps";
+import { loadItems } from "@/server/items";
 import { requireAdmin } from "@/server/session";
+import type { Settings } from "@/server/settings";
+import { inUseCounts, type ListKind } from "@/server/tag-lists";
 
 export const metadata: Metadata = { title: "Settings · Lost & Found" };
 
-/** The admin Settings tab. The bin description, types, colors and the CSV come in a later pull request. */
+function tagEntries(settings: Settings, kind: ListKind, counts: Map<string, number>): TagEntry[] {
+  const entry = (e: { name: string; active: boolean }) => ({ name: e.name, active: e.active, inUse: counts.get(e.name) ?? 0 });
+  const bySort = (a: { sort: number }, b: { sort: number }) => a.sort - b.sort;
+  return kind === "types" ? [...settings.types].sort(bySort).map(entry) : [...settings.colors].sort(bySort).map((c) => ({ ...entry(c), swatch: c.swatch }));
+}
+
+/** The admin Settings tab (spec section 6): the codes, where the bin is, the types and colors, the CSV, and *Leave admin*. */
 export default async function SettingsPage() {
   const admin = await requireAdmin();
   const { settings } = admin;
+  const file = await loadItems(await getDeps(), { fresh: true });
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4">
@@ -40,6 +54,31 @@ export default async function SettingsPage() {
         <p className="hint">
           Share it only with PTA admins. Changing it turns every other admin phone back into an ordinary one, so give the new code to the admins who should keep
           access.
+        </p>
+      </section>
+
+      <section aria-labelledby="h-bin" className="card flex flex-col gap-2.5 p-4">
+        <h2 id="h-bin" className="text-[17px] font-extrabold">
+          Where the bin is
+        </h2>
+        <BinDescriptionForm current={settings.bin_description} />
+      </section>
+
+      <TagListEditor kind="types" entries={tagEntries(settings, "types", inUseCounts(file, "types"))} />
+      <TagListEditor kind="colors" entries={tagEntries(settings, "colors", inUseCounts(file, "colors"))} />
+
+      <section aria-labelledby="h-download" className="card flex flex-col gap-2 p-4">
+        <h2 id="h-download" className="text-[17px] font-extrabold">
+          Download
+        </h2>
+        <a href="/admin/items.csv" download className="btn-secondary btn-small self-start">
+          <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+          </svg>
+          Current list (CSV)
+        </a>
+        <p className="hint">
+          Every item since the last clear-out, with who added and claimed it. Each clear-out&apos;s CSV is on the <Link href="/admin/clear-out">Clear out</Link> tab.
         </p>
       </section>
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { adminCodeProblem, normalizeCode, schoolCodeProblem } from "@/server/codes";
 import type { Deps } from "@/server/deps";
+import type { Change } from "@/server/docs";
 
 export const SETTINGS_KEY = "settings.json";
 
@@ -23,6 +24,8 @@ const clearOutChangeSchema = z.object({
   change: z.enum(["moved", "skipped"]),
   moved_to: day.nullable(),
   note: z.string().nullable(),
+  /** The admin phone's name at the time: "Moved from Fri, Jan 8 by Dana". */
+  by_name: z.string().max(60).nullable().optional(),
 });
 
 export const settingsSchema = z.object({
@@ -151,5 +154,18 @@ export async function changeAdminCode(deps: Deps, input: string): Promise<CodeCh
     if (current.admin_code === code) return { result: { ok: false, error: "That's already the admin code." } };
     const next = { ...current, admin_code: code, admin_code_changed_at: laterVersion(current.admin_code_changed_at, deps.now()) };
     return { value: next, result: { ok: true, settings: next } };
+  });
+}
+
+/**
+ * Any other change to settings.json, as a safe write: `apply` gets a copy of
+ * the settings, may change it, and returns it as `value` to save it. Like
+ * any Docs change it can run more than once, so it must only compute.
+ */
+export async function updateSettings<R>(deps: Deps, apply: (current: Settings) => Change<Settings, R>): Promise<R> {
+  await loadSettings(deps);
+  return deps.docs.update<Settings, R>(SETTINGS_KEY, settingsSchema, (current) => {
+    if (!current) throw new Error("settings.json disappeared");
+    return apply(current);
   });
 }

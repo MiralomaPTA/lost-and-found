@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { keepNewPhotoAction, removeItemAction, undoPhotoReplaceAction, undoRemovalAction } from "@/app/actions/admin";
 import { CropArea } from "@/components/add/CropArea";
 import { RestoreButton } from "@/components/admin/RestoreButton";
+import { SHEET, useModal } from "@/components/admin/Sheet";
 import { useUndo } from "@/components/admin/UndoProvider";
 import { boxRect, initialBox, type Box } from "@/lib/image/crop-box";
 import { decodeImage, trimRegion, UnreadablePhotoError, uploadImages } from "@/lib/image/browser";
@@ -113,20 +114,6 @@ export function AdminItemActions({ itemId, label, status }: { itemId: string; la
     </div>
   );
 }
-
-function useModal(open: boolean) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const element = dialog.current;
-    if (!element) return;
-    if (open && !element.open) element.showModal();
-    else if (!open && element.open) element.close();
-  }, [open]);
-  return dialog;
-}
-
-const SHEET =
-  "m-0 mt-auto max-h-[94dvh] w-full max-w-none overflow-y-auto rounded-t-[22px] bg-white p-0 text-ink backdrop:bg-ink/55 sm:m-auto sm:max-w-md sm:rounded-[22px]";
 
 /** *Remove* asks for a reason (spec section 6). */
 function RemoveSheet({
