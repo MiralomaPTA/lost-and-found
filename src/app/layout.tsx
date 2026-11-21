@@ -14,6 +14,8 @@ const figtree = Figtree({ variable: "--font-figtree", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Lost & Found · Miraloma PTA",
   description: "Look through Miraloma's lost-and-found bin from home, and claim what's yours.",
+  // The school code keeps strangers out; this keeps the code screen and the help page out of search results too.
+  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#ffffff" };
@@ -47,6 +49,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <footer className="flex flex-col items-center gap-1.5 border-t border-line px-4 py-6 text-center text-[13px] text-muted">
           <span>
             Questions or concerns? <a href={`mailto:${config.contactEmail}`}>{config.contactEmail}</a>
+          </span>
+          <span>
+            <Link href="/help">How it works</Link>
           </span>
           {visitor.isAdmin ? (
             <span>

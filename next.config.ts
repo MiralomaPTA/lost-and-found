@@ -12,6 +12,20 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "4mb",
     },
   },
+  headers: async () => [
+    {
+      source: "/:path*",
+      headers: [
+        // No other site may show these pages in a frame, so nobody can trick
+        // a tap on This is mine or Clear out through an invisible one.
+        { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        { key: "X-Frame-Options", value: "DENY" },
+        { key: "X-Content-Type-Options", value: "nosniff" },
+        // Bulk add uses the camera on this site's own pages, and nothing else.
+        { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+      ],
+    },
+  ],
   turbopack: {
     // Pin the root: a stray package-lock.json higher up would otherwise be taken for it.
     root: process.cwd(),

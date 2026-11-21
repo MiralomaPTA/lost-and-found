@@ -342,7 +342,7 @@ The bucket, "miraloma-pta-lost-and-found":
    - Create the Vercel project, add the GitHub repository secrets and the R2 credentials, and add the DNS record for lostandfound.miralomasf.com.
    - Set up a photo spot by the bin with good light and a plain backdrop (open question 11).
    - Pick the first school code and put it on a sign at the bin. Give the admin code to the admins only.
-2. **Phase 1: MVP.**
+2. **Phase 1: MVP.** **Built Nov 21, 2026, in pull requests 1 to 7. The pilot is next.**
    - The school code, the admin code and remembered phones.
    - The grid, the item page, claiming and fixing tags.
    - *My items*.
