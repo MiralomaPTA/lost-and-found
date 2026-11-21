@@ -9,6 +9,7 @@ import {
 import {
   assertValidKey,
   assertValidPrefix,
+  type ListedObject,
   type ObjectStore,
   type PutOptions,
   type PutResult,
@@ -40,6 +41,19 @@ export function r2ObjectStore(settings: R2Settings): ObjectStore {
     responseChecksumValidation: "WHEN_REQUIRED",
   });
   const Bucket = settings.bucket;
+
+  async function listObjects(prefix: string): Promise<ListedObject[]> {
+    assertValidPrefix(prefix);
+    const objects: ListedObject[] = [];
+    let ContinuationToken: string | undefined;
+    do {
+      const page = await client.send(new ListObjectsV2Command({ Bucket, Prefix: prefix || undefined, ContinuationToken }));
+      // With no date given, count it as new: sweeps only delete what's old.
+      for (const item of page.Contents ?? []) if (item.Key) objects.push({ key: item.Key, modified: item.LastModified ?? new Date() });
+      ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
+    } while (ContinuationToken);
+    return objects;
+  }
 
   return {
     async get(key) {
@@ -85,16 +99,10 @@ export function r2ObjectStore(settings: R2Settings): ObjectStore {
     },
 
     async list(prefix) {
-      assertValidPrefix(prefix);
-      const keys: string[] = [];
-      let ContinuationToken: string | undefined;
-      do {
-        const page = await client.send(new ListObjectsV2Command({ Bucket, Prefix: prefix || undefined, ContinuationToken }));
-        for (const item of page.Contents ?? []) if (item.Key) keys.push(item.Key);
-        ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
-      } while (ContinuationToken);
-      return keys;
+      return (await listObjects(prefix)).map((object) => object.key);
     },
+
+    listObjects,
   };
 }
 

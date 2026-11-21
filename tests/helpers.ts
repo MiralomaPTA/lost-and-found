@@ -3,9 +3,10 @@ import { Docs } from "@/server/docs";
 import { memoryObjectStore } from "@/server/storage/memory";
 import type { ObjectStore } from "@/server/storage/types";
 
-/** An in-memory bucket and a clock the test can move. */
-export function testDeps({ initialAdminCode = "maple otter river", start = "2026-12-07T16:00:00Z", store = memoryObjectStore() }: { initialAdminCode?: string | null; start?: string; store?: ObjectStore } = {}) {
+/** An in-memory bucket and a clock the test can move. The bucket's own write times follow the same clock. */
+export function testDeps({ initialAdminCode = "maple otter river", start = "2026-12-07T16:00:00Z", store }: { initialAdminCode?: string | null; start?: string; store?: ObjectStore } = {}) {
   let now = new Date(start);
+  store ??= memoryObjectStore({ now: () => now });
   const deps: Deps = { store, docs: new Docs(store, 0), now: () => now, initialAdminCode };
   return {
     deps,

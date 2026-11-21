@@ -94,3 +94,10 @@ export function whenLabel(moment: string, now: Date): string {
   if (days > 1 && days < 7) return `${weekdayFormat.format(new Date(moment))}, ${time}`;
   return `${shortDate(moment)}, ${time}`;
 }
+
+/** "2026-12-07 08:40", in Pacific time: for spreadsheets, which sort it as text. */
+export function pacificDateTime(moment: string): string {
+  const date = new Date(moment);
+  const time = timeFormat.format(date).slice(0, 5);
+  return `${pacificDate(date)} ${time}`;
+}

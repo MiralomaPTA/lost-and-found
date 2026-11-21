@@ -198,22 +198,26 @@ The admin section has four tabs: *Items*, *Claims*, *Clear out* (section 7) and 
 - **Reported missing**, at the top of *Claims*, lists the items families marked *It wasn't there*, newest first, with the name the family gave and a short code for the phone. If an item is actually in the bin, *Restore* puts it back on the grid.
 - **Claims** lists recent claims, newest first. Each shows the item's thumbnail, the name the family gave, a short code for the phone (so two "Lee family" claims can be told apart), and when. *Undo claim* takes an optional note the family sees in *My items*, and the item goes back on the grid.
 - **Undo.** Removing an item, replacing a photo and undoing a claim each show an *Undo* bar for a few seconds afterward; it stays while the admin moves between admin pages. After that, a removed item can still be restored until the next clear-out. A replaced photo is kept while its *Undo* bar shows and deleted once the bar has gone, and at the latest ten minutes after the replacement: the next save of the list, or the next look at an admin page, deletes it, whatever happened to the admin's browser.
-- The activity log records every add, undone add, tag change, photo replacement, claim, unclaim, undo, removal, restore and clear-out.
+- **Settings** has the school code, the admin code, where the bin is (it finishes "Pick it up from the lost-and-found bin …", shown with a preview), the types and colors lists, and *Download CSV* of the current list. An admin can add a type or color, rename one (the items on the list are renamed too, so they still match the filters), hide one (it's no longer offered when adding, fixing tags or filtering; items that have it keep it, and their other tags can still be fixed) and reorder them. At least one of each stays shown, and each list holds up to 40.
+- **CSVs** list each item's number, status, type, color, *Has a name*, when it was added and by whom (name and phone code), the claim that tells its story (the open or picked-up one, otherwise the latest), and when it was removed or donated. Like the admin pages, they show phone codes, never phone IDs. A cell a spreadsheet would run as a formula (a name typed as "=…") is written as text.
+- The activity log records every add, undone add, tag change, photo replacement, claim, unclaim, undo, removal, restore and clear-out, and every change on Settings and to the clear-out dates.
 
 ### 7. Clear-outs (admins)
 
 - **Due monthly, on the second Friday.** The app works out the dates itself, and the next one shows in the header. Nothing happens automatically on the date: a clear-out runs only when an admin taps *Clear out* on the admin section's *Clear out* tab.
-- **The Clear out tab** has the *Clear out* button and the next date, the coming dates with *Move* and *Skip* (for example when school is closed that Friday, or over the summer), and the past clear-outs with their counts and a CSV for each.
+- **The Clear out tab** has the *Clear out* button and the next date, the coming dates with *Move* and *Skip* (for example when school is closed that Friday, or over the summer), and the past clear-outs with their counts and a CSV for each. *Move* takes a day from today on, within four weeks of the second Friday; *Put back* undoes a move or a skip. Each changed date says who changed it. A date that passed and was skipped stays in the list, so its skip can be put back.
+- **Which date a clear-out counts for.** Tapping *Clear out* counts for the date due that week, or for one that passed without a clear-out. At any other time it's an extra clear-out: it counts for that day, and the next date stays on the calendar. After one runs early for a coming date, the next can run once that date has passed. Before the first clear-out ever, dates count from the day the oldest item still in the bin (available or claimed) was added, so a first clear-out that slips shows as overdue too, but a date from before anything was in the bin never does. Of several dates that passed, only the latest shows as overdue, since one clear-out covers them all.
 - On the day, volunteers bag up what is in the bin and donate it, then an admin taps *Clear out*. The confirmation gives the numbers: "This marks the 214 items still on the list as donated, closes 37 claims as picked up, and removes all their photos."
 - A clear-out:
   - Marks every available item *Donated*.
   - Leaves claimed items *Claimed*: the app assumes the family picked them up, so they never count as donated. Their open claims close as *Picked up*.
-  - Deletes from the bucket the photos and thumbnails of every item that is no longer available, removed items included. Nothing from before the clear-out keeps a photo.
+  - Deletes from the bucket the photos and thumbnails of every item that is no longer available, removed items included, and any replaced photo still kept for *Undo*. It also deletes any photo file the list doesn't point at that is more than an hour old (a deletion that failed earlier); a newer one may belong to an add still on its way. A photo it can't delete is tried again after later admin pages open (at most every ten minutes per server, and every time on the *Clear out* tab), so nothing from before the clear-out keeps a photo for long.
   - Writes an archive file for that clear-out, with every item it closed and the counts.
 
   The list then starts empty, with a fresh `items.json`. Item numbers carry on from where they were.
 - There is no undo. The confirmation is the safeguard: it says "Only do this after the bin has been emptied", and a clear-out is never started by the app.
-- It is a button rather than a scheduled job so the app matches what happened at the bin, even when the date slips. If a clear-out date passes without a clear-out, admins see "The Dec 11 clear-out hasn't been done yet."
+- It is a button rather than a scheduled job so the app matches what happened at the bin, even when the date slips. If a clear-out date passes without a clear-out, admins see "The Dec 11 clear-out hasn't been done yet." on the other admin tabs, and families see "Any day now" in the header until it's done.
+- A second tap, or a page left open past the date, can't run a second clear-out by surprise: the button carries the date the tab showed, and nothing happens if that isn't the date it would count for.
 
 ### 8. Email and questions
 
@@ -263,11 +267,11 @@ The bucket, "miraloma-pta-lost-and-found":
 
 | Object | Holds | Written when |
 | --- | --- | --- |
-| `items.json` | Every item since the last clear-out, with its claims, plus the next item number and which clear-out the list started after. About 100 KB at peak | Any add, tag change, photo replacement, claim, unclaim, undo, removal or restore, with a safe write (below) |
+| `items.json` | Every item since the last clear-out, with its claims, plus the next item number, which clear-out the list started after, and one line per past clear-out (its date, who ran it, its counts). About 100 KB at peak | Any add, tag change, photo replacement, claim, unclaim, undo, removal or restore, with a safe write (below) |
 | `devices/<id>.json` | One phone | The phone changes its name or enters the admin code, or once a day for `last_seen_at` |
 | `settings.json` | The school code, the admin code and other settings, the types and colors lists, and clear-out dates an admin moved or skipped | An admin changes something |
 | `activity/<date>/<time>-<id>.json` | One action | Every action, as a new file that is never rewritten |
-| `archive/<clear-out date>.json` | Every item that clear-out closed, without photos, and the counts | Once, by that clear-out |
+| `archive/<clear-out date>.json` | Every item that clear-out closed, without photos, and the counts | Once, by that clear-out: first as `archive/pending/<run>.json`, then under its date once the list has been reset, so a clear-out that stops partway loses nothing. Admin pages name a finished run's pending archive if it stopped before doing so, and delete one from a run that never reset the list |
 | `backups/items-<date>.json` | A copy of `items.json` as it was before that day's first write | The first write of each day |
 | `photos/<random>.jpg`, `photos/<random>-thumb.jpg` | Each item's photo and thumbnail | An upload; deleted by the clear-out, or when an admin replaces the photo (once the *Undo* bar has gone) |
 

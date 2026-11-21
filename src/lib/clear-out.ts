@@ -12,6 +12,8 @@ export interface ClearOutChange {
   date: string;
   change: "moved" | "skipped";
   moved_to: string | null;
+  /** The admin who moved or skipped it, as their phone was named then. */
+  by_name?: string | null;
 }
 
 /** The second Friday of a month (1–12), as YYYY-MM-DD. */
@@ -44,6 +46,11 @@ export interface LastClearOut {
   done_at: string;
 }
 
+/** The last day a clear-out covers: the date it counted for, or the day it ran if that was later. */
+export function doneThrough(last: LastClearOut | null): string | null {
+  return last ? [last.date, pacificDate(last.done_at)].sort()[1] : null;
+}
+
 export interface UpcomingClearOut {
   /** YYYY-MM-DD. */
   date: string;
@@ -67,8 +74,8 @@ export function upcomingClearOut(today: string, changes: readonly ClearOutChange
   const [year, month] = today.split("-").map(Number);
   // Start a month back: last month's date may have been moved into this one, or be overdue.
   const start = month === 1 ? { year: year - 1, month: 12 } : { year, month: month - 1 };
-  const doneThrough = last ? [last.date, pacificDate(last.done_at)].sort()[1] : null;
-  const pending = clearOutDates(start, 14, changes).filter((date) => !doneThrough || date > doneThrough);
+  const through = doneThrough(last);
+  const pending = clearOutDates(start, 14, changes).filter((date) => !through || date > through);
   const past = pending.filter((date) => date < today);
   if (last && past.length > 0) return { date: past[past.length - 1], overdue: true };
   const next = pending.find((date) => date >= today);
@@ -78,6 +85,12 @@ export function upcomingClearOut(today: string, changes: readonly ClearOutChange
 /** Whole days from `today` until `date` (both YYYY-MM-DD): 0 on the day itself. */
 export function daysUntil(today: string, date: string): number {
   return dayNumber(date) - dayNumber(today);
+}
+
+/** "today", "tomorrow", "in 4 days", for a date still to come. */
+export function untilLabel(today: string, date: string): string {
+  const days = daysUntil(today, date);
+  return days <= 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
 }
 
 /** The donation reminder shows on the grid in the last 7 days, the clear-out day included. */
