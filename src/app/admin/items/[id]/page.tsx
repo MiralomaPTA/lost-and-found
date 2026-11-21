@@ -4,11 +4,12 @@ import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { AdminItemActions } from "@/components/admin/AdminItemActions";
 import { UndoClaimForm } from "@/components/admin/UndoClaimForm";
-import { ItemTags } from "@/components/item/ItemTags";
-import { actorIds, adminItemView, phoneNames } from "@/server/admin-views";
+import { AdminItemTags } from "@/components/admin/AdminItemTags";
+import { adminItemView, itemActorIds, phoneNames } from "@/server/admin-views";
 import { getDeps } from "@/server/deps";
-import { ITEM_ID, loadItems } from "@/server/items";
+import { ITEM_ID, loadItems, sweepReplacedPhotos } from "@/server/items";
 import { requireAdmin } from "@/server/session";
+import { after } from "next/server";
 import { activeColors, activeTypes, swatchFor } from "@/server/views";
 
 export const metadata: Metadata = { title: "Item · Admin · Lost & Found" };
@@ -21,8 +22,10 @@ export default async function AdminItemPage({ params }: PageProps<"/admin/items/
   const deps = await getDeps();
   const file = await loadItems(deps, { fresh: true });
   const item = file.items.find((i) => i.id === id);
+  // Old photos whose Undo time is over go now, not whenever the list is next saved.
+  after(() => sweepReplacedPhotos(deps).catch((error) => console.error("Couldn't sweep replaced photos", error)));
   if (!item) notFound();
-  const names = await phoneNames(deps, actorIds({ ...file, items: [item] }));
+  const names = await phoneNames(deps, itemActorIds(item));
   const view = adminItemView(item, names, deps.now());
   const onList = view.status === "available" || view.status === "claimed";
 
@@ -41,9 +44,8 @@ export default async function AdminItemPage({ params }: PageProps<"/admin/items/
         {/* eslint-disable-next-line @next/next/no-img-element -- photos are already sized */}
         <img src={view.photo} alt={view.label} className={`absolute inset-[8%] h-[84%] w-[84%] object-contain ${view.status === "removed" ? "opacity-50" : ""}`} />
       </div>
-      <ItemTags
+      <AdminItemTags
         key={`${view.id}-${view.type}-${view.color}-${view.hasName}`}
-        heading="h2"
         itemId={onList ? view.id : null}
         initial={{ type: view.type, color: view.color, hasName: view.hasName }}
         types={activeTypes(settings)}

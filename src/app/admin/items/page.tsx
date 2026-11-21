@@ -3,8 +3,9 @@ import Link from "next/link";
 import { RestoreButton } from "@/components/admin/RestoreButton";
 import { adminCard, adminItems, adminSearch, parseAdminQuery, STATUS_FILTERS, statusCounts, type AdminCard } from "@/server/admin-views";
 import { getDeps } from "@/server/deps";
-import { loadItems } from "@/server/items";
+import { loadItems, sweepReplacedPhotos } from "@/server/items";
 import { requireAdmin } from "@/server/session";
+import { after } from "next/server";
 
 export const metadata: Metadata = { title: "Items · Admin · Lost & Found" };
 
@@ -24,6 +25,8 @@ export default async function AdminItemsPage({ searchParams }: PageProps<"/admin
   // Admins see changes at once, their own and other admins'.
   const file = await loadItems(deps, { fresh: true });
   const query = parseAdminQuery(await searchParams);
+  // Old photos whose Undo time is over go now, not whenever the list is next saved.
+  after(() => sweepReplacedPhotos(deps).catch((error) => console.error("Couldn't sweep replaced photos", error)));
   const counts = statusCounts(file);
   const now = deps.now();
   const cards = adminItems(file, query).map((item) => adminCard(item, now));

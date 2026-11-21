@@ -77,9 +77,9 @@ export function AdminItemActions({ itemId, label, status }: { itemId: string; la
         open={removing}
         itemId={itemId}
         onClose={() => setRemoving(false)}
-        onRemoved={(reason) => {
+        onRemoved={(reason, closedClaimName) => {
           setRemoving(false);
-          offer(`${itemId} removed: ${reason}`, async () => {
+          offer(`${itemId} removed: ${reason}${closedClaimName ? `. ${closedClaimName}'s claim on it is closed` : ""}.`, async () => {
             const back = await undoRemovalAction(itemId);
             refresh();
             return back.ok ? null : back.message;
@@ -104,8 +104,8 @@ export function AdminItemActions({ itemId, label, status }: { itemId: string; la
               refresh();
               return back.ok ? null : back.message;
             },
-            // Once Undo is no longer offered, the old photo is deleted.
-            { onExpire: () => void keepNewPhotoAction(itemId) },
+            // Once Undo is no longer offered, the old photo is deleted (the server also does it after ten minutes).
+            { onExpire: () => void keepNewPhotoAction(itemId, photo).catch(() => undefined) },
           );
           refresh();
         }}
@@ -129,11 +129,30 @@ const SHEET =
   "m-0 mt-auto max-h-[94dvh] w-full max-w-none overflow-y-auto rounded-t-[22px] bg-white p-0 text-ink backdrop:bg-ink/55 sm:m-auto sm:max-w-md sm:rounded-[22px]";
 
 /** *Remove* asks for a reason (spec section 6). */
-function RemoveSheet({ open, itemId, onClose, onRemoved }: { open: boolean; itemId: string; onClose: () => void; onRemoved: (reason: string) => void }) {
+function RemoveSheet({
+  open,
+  itemId,
+  onClose,
+  onRemoved,
+}: {
+  open: boolean;
+  itemId: string;
+  onClose: () => void;
+  onRemoved: (reason: string, closedClaimName: string | undefined) => void;
+}) {
   const dialog = useModal(open);
   const [reason, setReason] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
+  // Nothing picked each time it opens.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) {
+      setReason(null);
+      setProblem(null);
+    }
+  }
   return (
     <dialog ref={dialog} onClose={onClose} aria-labelledby="remove-title" className={SHEET}>
       {open && (
@@ -146,7 +165,7 @@ function RemoveSheet({ open, itemId, onClose, onRemoved }: { open: boolean; item
             setProblem(null);
             const result = await removeItemAction(itemId, reason).catch(() => ({ ok: false as const, message: OFFLINE }));
             setBusy(false);
-            if (result.ok) onRemoved(reason);
+            if (result.ok) onRemoved(reason, result.closedClaimName);
             else setProblem(result.message);
           }}
         >
@@ -210,8 +229,18 @@ function PhotoSheet({
     setProgress(null);
   }
 
+  const uploading = progress !== null;
   return (
-    <dialog ref={dialog} onClose={onClose} aria-labelledby="photo-title" className={SHEET}>
+    <dialog
+      ref={dialog}
+      onClose={onClose}
+      // Mid-upload the photo may already be on its way in: the sheet stays until the answer comes.
+      onCancel={(event) => {
+        if (uploading) event.preventDefault();
+      }}
+      aria-labelledby="photo-title"
+      className={SHEET}
+    >
       {picked && box && (
         <div className="flex flex-col gap-3 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
           <h2 id="photo-title" className="px-4 text-xl font-extrabold">
@@ -232,7 +261,14 @@ function PhotoSheet({
             </p>
           )}
           <div className="grid grid-cols-2 gap-2 px-4">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button
+              type="button"
+              className="btn-secondary aria-disabled:cursor-wait aria-disabled:opacity-50"
+              aria-disabled={uploading}
+              onClick={() => {
+                if (!uploading) onClose();
+              }}
+            >
               Cancel
             </button>
             <button

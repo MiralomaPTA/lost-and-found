@@ -2,10 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { RestoreButton } from "@/components/admin/RestoreButton";
 import { UndoClaimForm } from "@/components/admin/UndoClaimForm";
-import { actorIds, phoneNames, recentClaims, reportedMissing, type AdminClaimRow } from "@/server/admin-views";
+import { phoneNames, recentClaims, reportedMissing, undoerIds, type AdminClaimRow } from "@/server/admin-views";
 import { getDeps } from "@/server/deps";
-import { loadItems } from "@/server/items";
+import { loadItems, sweepReplacedPhotos } from "@/server/items";
 import { requireAdmin } from "@/server/session";
+import { after } from "next/server";
 
 export const metadata: Metadata = { title: "Claims · Admin · Lost & Found" };
 
@@ -14,7 +15,9 @@ export default async function AdminClaimsPage() {
   await requireAdmin();
   const deps = await getDeps();
   const file = await loadItems(deps, { fresh: true });
-  const names = await phoneNames(deps, actorIds(file));
+  const names = await phoneNames(deps, undoerIds(file.items));
+  // Old photos whose Undo time is over go now, not whenever the list is next saved.
+  after(() => sweepReplacedPhotos(deps).catch((error) => console.error("Couldn't sweep replaced photos", error)));
   const now = deps.now();
   const missing = reportedMissing(file, names, now);
   const claims = recentClaims(file, names, now);

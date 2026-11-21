@@ -60,9 +60,17 @@ export async function phoneNames(deps: Deps, ids: Iterable<string | null | undef
   return new Map(unique.map((id, i) => [id, devices[i]?.name ?? `Phone ${phoneCode(id)}`]));
 }
 
-/** Every phone ID on the list that did something an admin page names. */
-export function actorIds(file: ItemsFile): string[] {
-  return file.items.flatMap((item) => [item.removed_by, ...item.claims.map((claim) => claim.ended_by)].filter((id): id is string => Boolean(id)));
+/**
+ * The phones whose names a page shows beyond what the records carry: the
+ * admins who undid claims (the Claims page), and for one item, whoever
+ * removed it. Each is a read of that phone's file, so only these.
+ */
+export function undoerIds(items: Item[]): string[] {
+  return items.flatMap((item) => item.claims.filter((claim) => claim.status === "undone").map((claim) => claim.ended_by)).filter((id): id is string => Boolean(id));
+}
+
+export function itemActorIds(item: Item): string[] {
+  return [item.removed_by, ...undoerIds([item])].filter((id): id is string => Boolean(id));
 }
 
 export interface AdminCard {
@@ -121,7 +129,7 @@ function claimRow(item: Item, claim: Claim, names: Map<string, string>, now: Dat
         : claim.status === "not found"
           ? `Said it wasn't there · ${ended}`
           : claim.status === "undone"
-            ? `${item.status === "removed" && item.removed_at === claim.ended_at ? "Item removed" : "Undone"} by ${ender} · ${ended}`
+            ? `${claim.closed_by_removal ? "Item removed" : "Undone"} by ${ender} · ${ended}`
             : "Picked up";
   return {
     itemId: item.id,

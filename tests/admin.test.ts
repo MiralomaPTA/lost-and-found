@@ -32,14 +32,16 @@ import {
 } from "@/app/actions/admin";
 import { POST as replacePhotoRoute } from "@/app/api/items/[id]/photo/route";
 import { forgetPreviousPhoto, removeItem, reopenClaim, replacePhoto, restoreItem, undoClaimAsAdmin, undoPhotoReplace, undoRemoval } from "@/server/admin-items";
+import { UndoOffers } from "@/lib/undo-offers";
 import { adminCard, adminItems, phoneNames, recentClaims, reportedMissing, statusCounts } from "@/server/admin-views";
 import { CODE_COOKIE, PHONE_COOKIE } from "@/server/cookies";
-import { addItem, changeItems, claimItem, emptyItemsFile, loadItems, markNotThere, type ItemsFile } from "@/server/items";
+import { addItem, changeItems, claimItem, emptyItemsFile, ITEMS_KEY, loadItems, markNotThere, PHOTO_UNDO_MS, sweepReplacedPhotos, type ItemsFile } from "@/server/items";
+import { memoryObjectStore } from "@/server/storage/memory";
 import { phoneCode } from "@/server/phone-code";
 import { becomeAdmin, schoolCodeProof, setDeviceName } from "@/server/phones";
 import { changeSchoolCode, loadSettings } from "@/server/settings";
 import { myItemsView } from "@/server/views";
-import { fakeJpeg, PHONE_A, PHONE_B, PHONE_C, photoNames, testDeps } from "./helpers";
+import { fakeJpeg, PHONE_A, PHONE_B, PHONE_C, photoNames, racingStore, testDeps } from "./helpers";
 
 const NOW = new Date("2026-12-07T18:00:00Z");
 const ADMIN = PHONE_C;
@@ -111,11 +113,59 @@ describe("admins' changes", () => {
     expect(undoPhotoReplace(file, { itemId: "L-0001", adminId: ADMIN, photo: second.photo }, NOW)).toMatchObject({ ok: true, unused: [second.photo, second.thumb] });
     expect(file.items[0]).toMatchObject(first);
     expect(file.items[0].previous_photo).toBeUndefined();
-    expect(forgetPreviousPhoto(file, { itemId: "L-0001" })).toEqual({ ok: false, reason: "changed" });
+    expect(forgetPreviousPhoto(file, { itemId: "L-0001", photo: first.photo })).toEqual({ ok: false, reason: "changed" });
+  });
+
+  it("treat a replacement run twice as done, and tie Keep to its own replacement", () => {
+    const file = bin(1);
+    const first = photoNames();
+    replacePhoto(file, { itemId: "L-0001", adminId: ADMIN, ...first }, NOW);
+    expect(replacePhoto(file, { itemId: "L-0001", adminId: ADMIN, ...first }, NOW)).toMatchObject({ ok: true, changed: false, unused: [] });
+    const second = photoNames();
+    replacePhoto(file, { itemId: "L-0001", adminId: ADMIN, ...second }, NOW);
+    // The first bar going must not delete the photo the second bar can bring back.
+    expect(forgetPreviousPhoto(file, { itemId: "L-0001", photo: first.photo })).toEqual({ ok: false, reason: "changed" });
+    expect(file.items[0].previous_photo?.photo).toBe(first.photo);
+    expect(forgetPreviousPhoto(file, { itemId: "L-0001", photo: second.photo })).toMatchObject({ ok: true, unused: [first.photo, first.thumb] });
+  });
+
+  it("refuse to undo a replacement after ten minutes", () => {
+    const file = bin(1);
+    const names = photoNames();
+    replacePhoto(file, { itemId: "L-0001", adminId: ADMIN, ...names }, NOW);
+    expect(undoPhotoReplace(file, { itemId: "L-0001", adminId: ADMIN, photo: names.photo }, new Date(NOW.getTime() + PHOTO_UNDO_MS + 1))).toEqual({ ok: false, reason: "late" });
+  });
+
+  it("keep how a claim closed by a removal reads, after a restore", () => {
+    const file = claimed();
+    removeItem(file, { itemId: "L-0001", adminId: ADMIN, reason: "returned in person" }, NOW);
+    restoreItem(file, { itemId: "L-0001", adminId: ADMIN }, NOW);
+    expect(myItemsView(file, null, PHONE_B, NOW).current[0].state).toBe("removed");
+    expect(recentClaims(file, new Map([[ADMIN, "Dana K."]]), NOW)[0].outcome).toMatch(/^Item removed by Dana K\./);
   });
 });
 
 describe("what admins see", () => {
+  it("lets the old photo go on the next save once its Undo time is over", async () => {
+    const t = testDeps();
+    await changeItems(t.deps, (file) => {
+      Object.assign(file, bin(2));
+      return { value: file, result: null };
+    });
+    const old = (await loadItems(t.deps, { fresh: true })).items[0];
+    for (const name of [old.photo, old.thumb]) await t.store.put(`photos/${name}`, fakeJpeg(10, 10));
+    const names = photoNames();
+    await changeItems(t.deps, (file) => ({ value: file, result: replacePhoto(file, { itemId: "L-0001", adminId: ADMIN, ...names }, t.deps.now()) }));
+    await sweepReplacedPhotos(t.deps);
+    expect(await t.store.get(`photos/${old.photo}`)).not.toBeNull();
+    t.advance(PHOTO_UNDO_MS + 1000);
+    // Any save will do; an admin page's sweep does it when nothing else is saved.
+    await sweepReplacedPhotos(t.deps);
+    expect(await t.store.get(`photos/${old.photo}`)).toBeNull();
+    expect(await t.store.get(`photos/${old.thumb}`)).toBeNull();
+    expect((await loadItems(t.deps, { fresh: true })).items[0].previous_photo).toBeUndefined();
+  });
+
   it("gives each phone a short code that doesn't give its ID away", () => {
     expect(phoneCode(PHONE_A)).toMatch(/^[0-9A-HJKMNP-TV-Z]{4}$/);
     expect(phoneCode(PHONE_A)).toBe(phoneCode(PHONE_A));
@@ -182,7 +232,7 @@ describe("admin actions and the photo route", () => {
       await undoClaimAction("L-0001", "c-0000000001", ""),
       await reopenClaimAction("L-0001", "c-0000000001"),
       await undoPhotoReplaceAction("L-0001", `${"1".repeat(32)}.jpg`),
-      await keepNewPhotoAction("L-0001"),
+      await keepNewPhotoAction("L-0001", `${"1".repeat(32)}.jpg`),
     ]) {
       expect(result).toMatchObject({ ok: false, message: expect.stringMatching(/isn't an admin/) });
     }
@@ -197,7 +247,12 @@ describe("admin actions and the photo route", () => {
     const item = (await loadItems(t.deps, { fresh: true })).items[0];
     expect(item.claims[0]).toMatchObject({ status: "undone", note: "This belongs to another student.", ended_by: ADMIN });
     const actions = await Promise.all((await t.store.list("activity/")).map(async (key) => JSON.parse(new TextDecoder().decode((await t.store.get(key))!.body))));
-    expect(actions).toContainEqual(expect.objectContaining({ action: "claim_undone", actor: ADMIN, as_admin: true, item_id: "L-0001" }));
+    expect(actions).toContainEqual(expect.objectContaining({ action: "claim_undone", actor: ADMIN, as_admin: true, item_id: "L-0001", claim_id: "c-0000000001" }));
+  });
+
+  it("say whose claim a removal closed", async () => {
+    await asPhone(ADMIN);
+    expect(await removeItemAction("L-0001", "returned in person")).toEqual({ ok: true, closedClaimName: "Lee family" });
   });
 
   function postPhoto(id: string) {
@@ -225,10 +280,65 @@ describe("admin actions and the photo route", () => {
     expect(await t.store.get(`photos/${original}`)).not.toBeNull();
     // Replace again and keep it: now the old photo's files go.
     const again = await (await postPhoto("L-0001")).json();
-    expect(await keepNewPhotoAction("L-0001")).toEqual({ ok: true });
+    expect(await keepNewPhotoAction("L-0001", again.photo)).toEqual({ ok: true });
     expect(await t.store.get(`photos/${original}`)).toBeNull();
     expect(await t.store.get(`photos/${again.photo}`)).not.toBeNull();
     expect((await postPhoto("L-0099")).status).toBe(404);
     expect(await t.store.list("photos/")).toHaveLength(2);
+  });
+});
+
+describe("the photo route when the list keeps changing", () => {
+  it("cleans up the new files after a definite conflict", async () => {
+    const store = racingStore(memoryObjectStore(), ITEMS_KEY, 0);
+    const t = testDeps({ store });
+    h.deps.current = t;
+    const changed = await changeSchoolCode(t.deps, "otters");
+    if (!changed.ok) throw new Error(changed.error);
+    await becomeAdmin(t.deps, ADMIN, changed.settings, "Dana K.");
+    await changeItems(t.deps, (file) => {
+      Object.assign(file, bin(1));
+      return { value: file, result: null };
+    });
+    h.jar.clear();
+    h.jar.set(PHONE_COOKIE, ADMIN);
+    store.arm(99);
+    const form = new FormData();
+    form.set("photo", new Blob([fakeJpeg(1200, 1200).slice()]));
+    form.set("thumb", new Blob([fakeJpeg(400, 400).slice()]));
+    const response = await replacePhotoRoute(
+      new Request("http://localhost:3000/api/items/L-0001/photo", { method: "POST", body: form, headers: { origin: "http://localhost:3000", "x-forwarded-host": "localhost:3000" } }) as never,
+      { params: Promise.resolve({ id: "L-0001" }) },
+    );
+    expect(response.status).toBe(503);
+    expect(await t.store.list("photos/")).toEqual([]);
+  });
+});
+
+describe("the Undo bar's bookkeeping", () => {
+  const offer = (id: number, log: string[]) => ({ id, text: `offer ${id}`, onExpire: () => log.push(`expired ${id}`) });
+
+  it("lets a replaced offer's change stand once, and ignores a late close from it", () => {
+    const log: string[] = [];
+    const book = new UndoOffers();
+    book.show(offer(1, log));
+    book.show(offer(2, log));
+    expect(log).toEqual(["expired 1"]);
+    // Offer 1's Undo answering late doesn't hide offer 2, or expire anything.
+    expect(book.close(1, false)).toBe(false);
+    expect(book.shown?.id).toBe(2);
+    expect(book.close(2, true)).toBe(true);
+    expect(log).toEqual(["expired 1", "expired 2"]);
+  });
+
+  it("doesn't expire an offer that was undone, and expires the last one on leaving", () => {
+    const log: string[] = [];
+    const book = new UndoOffers();
+    book.show(offer(1, log));
+    book.close(1, false);
+    book.show(offer(2, log));
+    book.leave();
+    book.leave();
+    expect(log).toEqual(["expired 2"]);
   });
 });

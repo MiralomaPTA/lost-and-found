@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, context: RouteContext<"/api/ite
     }
     const outcome = await changeItems<PhotoSwap>(deps, (file) => {
       const result = replacePhoto(file, { itemId: id, adminId: admin.phoneId, ...names }, deps.now());
-      return result.ok ? { value: file, result } : { result };
+      return result.ok && result.changed ? { value: file, result } : { result };
     });
     if (!outcome.ok) {
       await removeNew();

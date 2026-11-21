@@ -1,4 +1,4 @@
-import { openClaim, type AdminRemoveReason, type Item, type ItemsFile } from "@/server/items";
+import { openClaim, photosInUse, PHOTO_UNDO_MS, type AdminRemoveReason, type Claim, type Item, type ItemsFile } from "@/server/items";
 
 /**
  * Admins' changes to items (spec section 6), as pure changes to the list, so
@@ -7,7 +7,7 @@ import { openClaim, type AdminRemoveReason, type Item, type ItemsFile } from "@/
  * to the item since.
  */
 
-export type AdminChange = { ok: true; item: Item } | { ok: false; reason: "gone" | "changed" };
+export type AdminChange = { ok: true; item: Item; closedClaim?: Claim } | { ok: false; reason: "gone" | "changed" | "late" };
 
 function find(file: ItemsFile, itemId: string): Item | undefined {
   return file.items.find((item) => item.id === itemId);
@@ -31,13 +31,14 @@ export function removeItem(file: ItemsFile, input: { itemId: string; adminId: st
     claim.status = "undone";
     claim.ended_at = at;
     claim.ended_by = input.adminId;
+    claim.closed_by_removal = true;
   }
   item.status = "removed";
   item.removed_at = at;
   item.removed_by = input.adminId;
   item.removed_reason = input.reason;
   touch(item, input.adminId, at);
-  return { ok: true, item };
+  return { ok: true, item, closedClaim: claim };
 }
 
 /**
@@ -47,11 +48,12 @@ export function removeItem(file: ItemsFile, input: { itemId: string; adminId: st
 export function undoRemoval(file: ItemsFile, input: { itemId: string; adminId: string }, now: Date): AdminChange {
   const item = find(file, input.itemId);
   if (!item || item.status !== "removed" || item.removed_by !== input.adminId) return { ok: false, reason: "changed" };
-  const closed = item.claims.find((c) => c.status === "undone" && c.ended_at === item.removed_at && c.ended_by === input.adminId);
+  const closed = item.claims.find((c) => c.status === "undone" && c.closed_by_removal && c.ended_at === item.removed_at && c.ended_by === input.adminId);
   if (closed) {
     closed.status = "open";
     closed.ended_at = null;
     closed.ended_by = null;
+    delete closed.closed_by_removal;
   }
   item.status = closed ? "claimed" : "available";
   item.removed_at = null;
@@ -109,42 +111,54 @@ export function reopenClaim(file: ItemsFile, input: { itemId: string; claimId: s
   return { ok: true, item };
 }
 
-export type PhotoSwap = { ok: true; item: Item; unused: string[] } | { ok: false; reason: "gone" | "changed" };
+export type PhotoSwap = { ok: true; item: Item; unused: string[]; changed: boolean } | { ok: false; reason: "gone" | "changed" | "late" };
+
+/** Of `names`, the files nothing on the list points at any more, which can be deleted. */
+function unusedOf(file: ItemsFile, names: string[]): string[] {
+  const inUse = photosInUse(file);
+  return names.filter((name) => !inUse.has(name));
+}
 
 /**
  * *Replace photo*. The old photo is kept (for *Undo*); one kept from an
  * earlier replacement is no longer needed. `unused` lists the photo files
- * to delete once the change is saved.
+ * to delete once the change is saved. Replacing with the photo it already
+ * has changes nothing, so running it twice is harmless.
  */
 export function replacePhoto(file: ItemsFile, input: { itemId: string; adminId: string; photo: string; thumb: string }, now: Date): PhotoSwap {
   const item = find(file, input.itemId);
   if (!item || item.status === "donated") return { ok: false, reason: "gone" };
-  const unused = item.previous_photo ? [item.previous_photo.photo, item.previous_photo.thumb] : [];
-  item.previous_photo = { photo: item.photo, thumb: item.thumb };
+  if (item.photo === input.photo) return { ok: true, item, unused: [], changed: false };
+  const older = item.previous_photo ? [item.previous_photo.photo, item.previous_photo.thumb] : [];
+  item.previous_photo = { photo: item.photo, thumb: item.thumb, replaced_at: now.toISOString() };
   item.photo = input.photo;
   item.thumb = input.thumb;
   touch(item, input.adminId, now.toISOString());
-  return { ok: true, item, unused };
+  return { ok: true, item, unused: unusedOf(file, older), changed: true };
 }
 
-/** *Undo* right after *Replace photo*: the old photo comes back, and the new one is no longer needed. */
+/**
+ * *Undo* right after *Replace photo*: the old photo comes back, and the new
+ * one is no longer needed. `photo` names the replacement being undone.
+ */
 export function undoPhotoReplace(file: ItemsFile, input: { itemId: string; adminId: string; photo: string }, now: Date): PhotoSwap {
   const item = find(file, input.itemId);
   if (!item) return { ok: false, reason: "gone" };
   if (!item.previous_photo || item.photo !== input.photo) return { ok: false, reason: "changed" };
-  const unused = [item.photo, item.thumb];
+  if (now.getTime() - Date.parse(item.previous_photo.replaced_at) > PHOTO_UNDO_MS) return { ok: false, reason: "late" };
+  const replaced = [item.photo, item.thumb];
   item.photo = item.previous_photo.photo;
   item.thumb = item.previous_photo.thumb;
   delete item.previous_photo;
   touch(item, input.adminId, now.toISOString());
-  return { ok: true, item, unused };
+  return { ok: true, item, unused: unusedOf(file, replaced), changed: true };
 }
 
-/** The *Undo* bar for a new photo has gone: the old photo can be deleted. */
-export function forgetPreviousPhoto(file: ItemsFile, input: { itemId: string }): PhotoSwap {
+/** The *Undo* bar for the replacement that brought in `photo` has gone: the photo it replaced can be deleted. */
+export function forgetPreviousPhoto(file: ItemsFile, input: { itemId: string; photo: string }): PhotoSwap {
   const item = find(file, input.itemId);
-  if (!item?.previous_photo) return { ok: false, reason: "changed" };
-  const unused = [item.previous_photo.photo, item.previous_photo.thumb];
+  if (!item?.previous_photo || item.photo !== input.photo) return { ok: false, reason: "changed" };
+  const older = [item.previous_photo.photo, item.previous_photo.thumb];
   delete item.previous_photo;
-  return { ok: true, item, unused };
+  return { ok: true, item, unused: unusedOf(file, older), changed: true };
 }

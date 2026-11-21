@@ -207,7 +207,7 @@ export function myItemsView(file: ItemsFile, archive: Archive | null, phoneId: s
     for (const claim of item.claims) {
       if (claim.device_id !== phoneId || claim.status === "unclaimed") continue;
       // An admin closes a claim either by undoing it (the item goes back on the grid) or by removing the item.
-      const removedWithIt = claim.status === "undone" && item.status === "removed" && item.removed_at === claim.ended_at;
+      const removedWithIt = claim.status === "undone" && claim.closed_by_removal === true;
       const state: MyClaimState =
         claim.status === "open" ? "claimed" : claim.status === "not found" ? "not there" : removedWithIt ? "removed" : claim.status === "undone" ? "put back" : "picked up";
       current.push({

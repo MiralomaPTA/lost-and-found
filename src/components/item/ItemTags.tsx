@@ -34,6 +34,7 @@ export function ItemTags({
   colors,
   palette,
   heading: Heading = "h1",
+  offerUndo,
 }: {
   /** Null for an item that's no longer on the list: its tags can't change. */
   itemId: string | null;
@@ -44,6 +45,8 @@ export function ItemTags({
   palette: Record<string, SwatchValue>;
   /** The admin item page has its own h1 (the item's number). */
   heading?: "h1" | "h2";
+  /** In the admin section, *Undo* goes through its shared bar instead of one of its own. */
+  offerUndo?: (text: string, undo: () => Promise<string | null>) => void;
 }) {
   const [tags, setTags] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -82,10 +85,19 @@ export function ItemTags({
     const failure = await send(next);
     if (failure) return failure;
     setProblem(null);
-    setPaused(false);
-    setPrevious(tags);
+    const before = tags;
     setTags(next);
     announce(`Tags saved: ${describe(next)}.`);
+    if (offerUndo) {
+      offerUndo(`Tags saved: ${describe(next)}.`, async () => {
+        const failure = await send(before);
+        if (!failure) setTags(before);
+        return failure;
+      });
+    } else {
+      setPaused(false);
+      setPrevious(before);
+    }
     return null;
   }
 

@@ -29,6 +29,8 @@ export function RestoreButton({ itemId, label, className = "" }: { itemId: strin
             return;
           }
           notify(`${itemId} is back on the grid.`);
+          // This button goes once the page refreshes: keep keyboard focus on the page.
+          document.querySelector<HTMLElement>("main h1")?.focus();
           startRefresh(() => router.refresh());
         }}
         className={`h-10 cursor-pointer rounded-[10px] border border-field bg-white px-3 text-sm font-bold text-ink hover:bg-page aria-disabled:cursor-wait aria-disabled:opacity-60 ${className}`}
