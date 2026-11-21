@@ -110,7 +110,7 @@ export default async function HelpPage() {
           <li>Phones, keys, wallets, glasses and medication go to the office, not here.</li>
           <li>
             Made a mistake? In bulk add, tap the item in the strip at the top and <strong>Undo</strong> it, until you leave bulk add. After adding one from a photo,{" "}
-            <strong>Undo</strong> lasts until you pick the next photo. After that, email {email} to have it removed.
+            <strong>Undo</strong> lasts until you pick the next photo or leave the screen. After that, email {email} to have it removed.
           </li>
           <li>
             Wrong type or color on anything? Open it and tap <strong>Fix tags</strong>. Anyone can, and the change shows right away.
