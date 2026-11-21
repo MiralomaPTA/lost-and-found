@@ -55,10 +55,10 @@ export async function currentAdmin(): Promise<AdminVisitor | null> {
   return visitor.isAdmin && visitor.phoneId && visitor.device ? (visitor as AdminVisitor) : null;
 }
 
-/** For admin pages: the admin, or a redirect to the admin code page. */
+/** For admin pages: the admin, or a redirect to the code screen. */
 export async function requireAdmin(): Promise<AdminVisitor> {
   const admin = await currentAdmin();
-  if (!admin) redirect("/admin-code");
+  if (!admin) redirect("/code");
   return admin;
 }
 

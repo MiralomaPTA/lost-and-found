@@ -57,7 +57,7 @@ export const claimSchema = z.looseObject({
   ended_by: phoneId.nullable(),
   /** An admin's note when they undo the claim, shown in My items. */
   note: z.string().max(300).nullable(),
-  /** The claim closed because an admin removed the item (the family sees "Removed by an admin"). */
+  /** The claim closed because an admin removed the item (the family sees "Removed by the PTA"). */
   closed_by_removal: z.boolean().optional(),
 });
 

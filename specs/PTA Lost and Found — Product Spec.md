@@ -54,19 +54,21 @@ There are two roles. There is no helper role: anyone with the school code can ad
 
 - The first visit asks for the school code: a short word printed in the newsletter and on a sign at the bin (open question 9). After that the phone is remembered and opens straight to the grid. Admins can type the admin code in the same box (below).
 - The phone is remembered by a random ID in a cookie that lasts a year from the phone's last visit (open question 1). Nothing else is stored about the person until they claim or add something.
-- The first claim or the first add asks for a name for admins to see next to it, such as "Lee family, Rm 12". The phone remembers it, and it can be changed in *My items*.
+- The first claim or the first add asks for a name for the PTA to see next to it ("What name should the PTA see?"), such as "Lee family, Rm 12". The phone remembers it, and it can be changed in *My items*.
 - *My items* belongs to the phone. A different phone, or clearing the browser, starts a new list, and earlier claims still stand.
 - When an admin changes the school code, for example at the start of the school year or if it spreads beyond the school, every phone is asked for the new one. Each phone keeps its ID, name and *My items*.
 - Wrong codes are slowed down: after 5 in a row, that browser waits a minute.
 
 **Admins: an admin code.** Admins don't sign in or get email. They type a second code that is shared only with admins.
 
-- Typing the admin code in the first-visit code box makes that phone an admin. It also counts as entering the current school code. The box doesn't say so, to avoid advertising admin access. A phone that's already in uses *Enter a new code* in the footer. The school code works there too: it lets the phone in and goes home, rather than counting as a wrong try.
-- If the phone has no name yet, it asks for one, so the admin pages and the activity log can say who did what ("Done by Dana").
+- There is one code box, on the code screen. A phone without the school code sees it in place of any page, and *Enter a new code* in the footer opens it for any phone at `/code`. There is no separate admin code page; `/admin-code` redirects to `/code`.
+- Typing the admin code in the code box makes that phone an admin and counts as entering the current school code. The box only ever mentions the school code. Typing the school code there lets the phone in, or for a phone that's already in, just goes home.
+- The admin code lands the phone on Settings. If the phone has no name yet, Settings asks for one first, so the admin pages and the activity log can say who did what ("Done by Dana").
 - A phone stays an admin until an admin changes the admin code, or until its cookie expires or the browser is cleared. *Leave admin* on Settings turns that phone back into an ordinary one.
 - There is no list of admins and no way to remove a single phone. To take access away, an admin changes the admin code and gives the new one to the admins who should keep it. Every other admin phone becomes an ordinary phone within a few seconds, keeping its name and *My items*.
 - Wrong admin codes count toward the same slowdown as wrong school codes. Because a script can ignore that browser cookie, each server also counts wrong codes per network address (20 in 15 minutes), and the admin code has to be hard to guess: at least three words of three or more letters, 15 characters in all, such as three random words (open question 14).
 - Settings shows the admin code to admins, so an admin can pass it on to a new one.
+- **Nothing a family can see mentions admins.** Family-facing text says "the PTA" ("Only the PTA sees it", "Removed by the PTA"), and the help page's part for admins shows only on admin phones. Admin phones still see the *Admin* badge, their footer line and *Open in admin*.
 
 There are no user lists. Each phone has its own small file, which also records whether it holds the current admin code (see *Storage layout*).
 
@@ -107,7 +109,7 @@ stateDiagram-v2
 - **Item page:** the large photo with pinch-zoom, type, color, its age and the date it was added, *This is mine*, *Send to a friend* and *Fix tags* (section 5). *Send to a friend* is for someone who recognizes a friend's things: it opens the phone's share sheet with the photo and "Is this yours? It's in the Miraloma lost and found", plus a link to the item, which needs the school code to open. Where the share sheet can't take a photo, it copies the photo to paste; only if the photo can't be had is it the line and link. It goes as soon as the item is claimed. Swipe or arrows move to the next item in the current filter and sort. An item that has been claimed says "This item has been claimed. If it's yours, email the PTA"; one that was cleared out says "This item was donated on Dec 11." Either can be reached from an old link.
 - Thumbnails load as they scroll into view. About 300 items fits on one page.
 - The bottom bar has three tabs: *All items*, *Add* (section 4) and *My items* (section 3).
-- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Enter a new code*. That link opens the admin code screen, but the footer doesn't mention admins. The footer ends with "Made with ❤️ by the Miraloma PTA", linked to the PTA's page, https://www.miralomasf.com/pta.
+- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Enter a new code*. That link opens the code screen (`/code`). The footer ends with "Made with ❤️ by the Miraloma PTA", linked to the PTA's page, https://www.miralomasf.com/pta.
 
 ### 2. Claiming
 
@@ -124,11 +126,11 @@ stateDiagram-v2
 
 ### 3. My items
 
-- The name admins see is at the top, with *Change*.
+- The name the PTA sees is at the top ("The PTA sees your name as …"), with *Change*.
 - A list of the claims made from this phone, newest first. Each shows the thumbnail, type and color, the claim date and one of:
   - **Claimed**, with *Unclaim* and *It wasn't there* buttons.
   - **Not in the bin**, after the family tapped *It wasn't there*.
-  - **Put back by an admin**, with the admin's note if there is one ("This belongs to another student.") and a link to email the PTA with questions.
+  - **Put back by the PTA**, with the admin's note if there is one ("This belongs to another student.") and a link to email the PTA with questions.
   - **Picked up**, for a claim from before the last clear-out, which the app assumes the family collected. *Unclaim* and *It wasn't there* are gone by then. It is shown without a photo, since the clear-out removes it.
 - Claims the family unclaimed themselves drop off the list.
 - **It wasn't there.** Items sometimes leave the bin without anyone claiming them in the app: a child spots their jacket and takes it. A family who claimed an item and couldn't find it taps *It wasn't there*, with an *Undo* bar afterward. The claim closes, and the item becomes *Removed* with the reason "not in the bin", so it stays off the grid for everyone. Admins see it under *Reported missing* (section 6) and can restore it if it turns up. Otherwise the monthly clear-out resets the list.
@@ -194,7 +196,7 @@ Each item gets three tags and nothing else: type, color, and whether it has a na
 The admin section has four tabs: *Items*, *Claims*, *Clear out* (section 7) and *Settings*.
 
 - **Items** shows the same grid, with the same ages and sort, every status, a status filter (available, claimed, removed), and each item's ID and who added it. Tapping a card opens its tags, plus *Replace photo* and *Remove*.
-- **Remove** asks for a reason: returned in person, gone from the bin, duplicate or mistake, thrown away, or other. A removed item can be restored until the next clear-out. Removing a claimed item closes its claim, and the family sees "Removed by an admin" in *My items*.
+- **Remove** asks for a reason: returned in person, gone from the bin, duplicate or mistake, thrown away, or other. A removed item can be restored until the next clear-out. Removing a claimed item closes its claim, and the family sees "Removed by the PTA" in *My items*.
 - **Reported missing**, at the top of *Claims*, lists the items families marked *It wasn't there*, newest first, with the name the family gave and a short code for the phone. If an item is actually in the bin, *Restore* puts it back on the grid.
 - **Claims** lists recent claims, newest first. Each shows the item's thumbnail, the name the family gave, a short code for the phone (so two "Lee family" claims can be told apart), and when. *Undo claim* takes an optional note the family sees in *My items*, and the item goes back on the grid.
 - **Undo.** Removing an item, replacing a photo and undoing a claim each show an *Undo* bar for a few seconds afterward; it stays while the admin moves between admin pages. After that, a removed item can still be restored until the next clear-out. A replaced photo is kept while its *Undo* bar shows and deleted once the bar has gone, and at the latest ten minutes after the replacement: the next save of the list, or the next look at an admin page, deletes it, whatever happened to the admin's browser.
@@ -308,7 +310,7 @@ The bucket, "miraloma-pta-lost-and-found":
 | --- | --- |
 | `/` | The school code on a phone's first visit, then the grid |
 | `/items/[id]` | Item page: large photo, *This is mine* and *Fix tags* |
-| `/mine` | My items, and the name admins see |
+| `/mine` | My items, and the name the PTA sees |
 | `/add` | Choose *Bulk add* or *Add one from a photo* |
 | `/add/bulk` | Bulk add from the live camera |
 | `/add/photo` | Add one item from a photo, with a crop box |
@@ -317,8 +319,8 @@ The bucket, "miraloma-pta-lost-and-found":
 | `/admin/clear-out` | Admin: *Clear out*, coming dates (move, skip), past clear-outs and their CSVs |
 | `/admin/settings` | Admin: the school code, the admin code, the bin description, types and colors, CSV of the current list, and *Leave admin* |
 | `/photos/[name]` | A photo or thumbnail, cached by Vercel's CDN |
-| `/admin-code` | Enter the admin code, for a phone that's already in |
-| `/help` | How it works, for everyone and for admins, and the address for questions |
+| `/code` | The code screen, for any phone: *Enter a new code* in the footer. It takes either code. `/admin-code` redirects here |
+| `/help` | How it works, and the address for questions. The part for admins shows only on admin phones |
 
 ## Data, privacy and retention
 

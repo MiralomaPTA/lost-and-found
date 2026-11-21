@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "4mb",
     },
   },
+  // The old admin code page: its job is the code screen's now.
+  redirects: async () => [{ source: "/admin-code", destination: "/code", permanent: false }],
   headers: async () => [
     {
       source: "/:path*",

@@ -9,9 +9,10 @@ const STEPS = [
 ];
 
 /**
- * The first-visit screen: the school code (or the admin code) and nothing
- * else. Pages that need the code show it in their place, and send the phone
- * back to `next` once it's in.
+ * The code screen: the school code and nothing else. Pages that need the code
+ * show it in their place, and send the phone back to `next` once it's in;
+ * `/code` shows it to any phone, for *Enter a new code* in the footer. The box
+ * also takes the admin code, without saying so.
  */
 export function CodeGate({ isOpen, next }: { isOpen: boolean; next?: string }) {
   return (
@@ -35,7 +36,7 @@ export function CodeGate({ isOpen, next }: { isOpen: boolean; next?: string }) {
           </li>
         ))}
       </ol>
-      <CodeForm mode="school" next={next} />
+      <CodeForm next={next} />
       <p className="text-center text-[13px] text-muted">No account or sign-in. This phone remembers the code.</p>
     </div>
   );

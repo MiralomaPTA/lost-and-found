@@ -20,7 +20,7 @@ function touch(item: Item, adminId: string, at: string) {
 
 /**
  * *Remove*, with a reason. A claimed item's open claim closes too (the family
- * sees "Removed by an admin" in My items).
+ * sees "Removed by the PTA" in My items).
  */
 export function removeItem(file: ItemsFile, input: { itemId: string; adminId: string; reason: AdminRemoveReason }, now: Date): AdminChange {
   const item = find(file, input.itemId);

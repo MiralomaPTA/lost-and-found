@@ -14,8 +14,8 @@ const BAR_MS = 10_000;
 const BADGES: Record<MyClaimState, { text: string; className: string }> = {
   claimed: { text: "Claimed", className: "bg-brand-soft text-brand-dark" },
   "not there": { text: "Not in the bin", className: "bg-rule text-body" },
-  "put back": { text: "Put back by an admin", className: "bg-warn-soft text-warn" },
-  removed: { text: "Removed by an admin", className: "bg-warn-soft text-warn" },
+  "put back": { text: "Put back by the PTA", className: "bg-warn-soft text-warn" },
+  removed: { text: "Removed by the PTA", className: "bg-warn-soft text-warn" },
   "picked up": { text: "Picked up", className: "bg-ok-soft text-ok" },
 };
 

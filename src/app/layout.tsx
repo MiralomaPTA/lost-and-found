@@ -57,7 +57,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             </span>
           ) : (
             <span>
-              <Link href="/admin-code">Enter a new code</Link>
+              <Link href="/code">Enter a new code</Link>
             </span>
           )}
           <span>

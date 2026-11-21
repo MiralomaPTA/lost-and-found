@@ -5,8 +5,8 @@ import { saveNameAction } from "@/app/actions/codes";
 import { SubmitButton } from "@/components/SubmitButton";
 import { NO_STATE } from "@/lib/form-state";
 
-/** Asks for the name admins see. Used once per phone; it can be changed later in My items. */
-export function NameForm({ next, hint, defaultValue }: { next?: string; hint: string; defaultValue?: string }) {
+/** Asks for the name the PTA sees. Used once per phone; it can be changed later in My items. */
+export function NameForm({ next, hint, defaultValue, placeholder = "e.g. Lee family, Rm 12" }: { next?: string; hint: string; defaultValue?: string; placeholder?: string }) {
   const [state, run, pending] = useActionState(saveNameAction, NO_STATE);
   return (
     <form action={run} className="card flex flex-col gap-4 p-5">
@@ -23,7 +23,7 @@ export function NameForm({ next, hint, defaultValue }: { next?: string; hint: st
           maxLength={60}
           autoComplete="name"
           defaultValue={state.values?.name ?? defaultValue}
-          placeholder="e.g. Lee family, Rm 12"
+          placeholder={placeholder}
           className="field"
           aria-describedby={state.error ? "name-hint name-error" : "name-hint"}
           aria-invalid={state.error ? true : undefined}

@@ -35,20 +35,16 @@ async function orTryAgain(attempt: number, run: () => Promise<FormState>): Promi
 }
 
 /**
- * The code box. It takes the school code or the admin code, on the
- * first-visit screen and on the admin code page (`want=admin`) alike. The
- * footer's *Enter a new code* leads to the admin code page, so a family whose
- * school code changed may well type it there: it lets them in and goes home,
- * rather than counting as a wrong try.
+ * The one code box, on the code screen (`/code`, and in place of any page a
+ * phone can't see yet). It takes the school code or the admin code, and says
+ * nothing about the second: the app never mentions admins to families.
  */
 export async function enterCodeAction(prev: FormState, formData: FormData): Promise<FormState> {
   const attempt = (prev.attempt ?? 0) + 1;
   const deps = await getDeps();
   const settings = await loadSettings(deps);
   const nowMs = deps.now().getTime();
-  const wantAdmin = formData.get("want") === "admin";
-  const typedName = String(formData.get("name") ?? "");
-  const values = { code: String(formData.get("code") ?? "").slice(0, 100), name: typedName.slice(0, 60) };
+  const values = { code: String(formData.get("code") ?? "").slice(0, 100) };
 
   const address = await clientAddress();
   if (tooManyWrongCodes(address, nowMs)) return { error: TOO_MANY_FROM_ADDRESS, attempt, values };
@@ -61,19 +57,14 @@ export async function enterCodeAction(prev: FormState, formData: FormData): Prom
     const next = recordWrongCode(tries, nowMs);
     await writeTries(next);
     if (isLocked(next, nowMs)) return { error: LOCKED, attempt, values };
-    return {
-      error: wantAdmin ? "That isn't the admin code." : "That code doesn't match. It's in the PTA newsletter and on the sign at the bin.",
-      attempt,
-      values,
-    };
+    return { error: "That code doesn't match. It's in the PTA newsletter and on the sign at the bin.", attempt, values };
   }
 
   await clearTries();
   const next = safeNext(formData.get("next"));
   if (match === "school") {
     await rememberSchoolCode(await ensurePhoneId(deps), settings);
-    // From the admin code page, home: its `next` is an admin page.
-    redirect(wantAdmin ? "/" : (next ?? "/"));
+    redirect(next ?? "/");
   }
 
   // The admin code: only for a phone ID this app recorded (see ensurePhoneId).
@@ -82,15 +73,15 @@ export async function enterCodeAction(prev: FormState, formData: FormData): Prom
   await rememberSchoolCode(phoneId, settings);
   let named: boolean;
   try {
-    const device = await becomeAdmin(deps, phoneId, settings, cleanName(typedName));
+    const device = await becomeAdmin(deps, phoneId, settings, null);
     named = Boolean(device.name);
   } catch (error) {
     if (error instanceof ConflictError) return { error: BUSY, attempt, values };
     throw error;
   }
   await logActivity(deps, { actor: phoneId, as_admin: true, action: "admin_code_entered" });
-  // A phone with no name yet is asked for one before it goes on.
-  redirect(named ? (next ?? "/admin/settings") : "/admin-code");
+  // A phone with no name yet goes to Settings, which asks for one first.
+  redirect(named ? (next ?? "/admin/settings") : "/admin/settings");
 }
 
 /** The name admins see next to this phone's claims, adds and admin actions. */
