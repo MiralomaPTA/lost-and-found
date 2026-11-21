@@ -48,6 +48,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <span>
             Questions or concerns? <a href={`mailto:${config.contactEmail}`}>{config.contactEmail}</a>
           </span>
+          <span>
+            <Link href="/help">How it works</Link>
+          </span>
           {visitor.isAdmin ? (
             <span>
               This phone is an admin{visitor.device?.name ? `: ${visitor.device.name}` : ""} · <Link href="/admin/items">Admin</Link>

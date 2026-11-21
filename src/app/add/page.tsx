@@ -58,7 +58,7 @@ export default async function AddPage() {
           <li>Turn name labels away from the camera, or crop them out.</li>
           <li>Phones, keys, wallets, glasses and medication go to the office, not here.</li>
           <li>
-            Made a mistake? You can undo it until you leave the add screen. After that, anyone can fix the tags. To have it removed, email{" "}
+            Made a mistake? In bulk add you can undo it until you leave. After adding one from a photo, you can undo it until you pick the next photo. After that, anyone can fix the tags. To have it removed, email{" "}
             <a href={`mailto:${config.contactEmail}`}>{config.contactEmail}</a>.
           </li>
         </ul>

@@ -4,7 +4,7 @@ A small Next.js app that puts the school's lost-and-found bin online. Anyone wit
 
 Everything the app keeps lives in one Cloudflare R2 bucket: a few JSON files and the photos. The app runs on Vercel, like [reimburse-me](https://github.com/MiralomaPTA/reimburse-me) and [asset-manager](https://github.com/MiralomaPTA/asset-manager), and sends no email.
 
-**Status: Phase 1 in progress.** Done: the school code, the admin code and remembered phones; the grid, the item page, claiming and *My items*; adding items (bulk add from the live camera, and one from a photo with a crop box); *Fix tags*; the admin section's *Items* and *Claims* (remove, restore, replace photo, undo claims, reported missing); the *Clear out* tab (the clear-out itself, moving and skipping dates, past clear-outs and their CSVs) and the rest of Settings (where the bin is, the types and colors lists, the CSV of the current list). Next: the help page and polish.
+**Status: Phase 1 is built.** Everything in the spec's Phase 1 is in: the school code, the admin code and remembered phones; the grid, the item page, claiming and *My items*; bulk add and adding one from a photo; *Fix tags*; the admin section (*Items*, *Claims*, *Clear out* and *Settings*); and the help page at `/help`. Next: the pilot (see *Before the pilot* below).
 
 ## Run it locally
 
@@ -59,3 +59,23 @@ One-time steps, mostly in other people's dashboards. The spec's *Rollout plan* h
    - Add the domain `lostandfound.miralomasf.com`, then add the CNAME record Vercel shows wherever miralomasf.com's DNS is managed.
 5. **Codes.** Pick the first school code (a short word for the newsletter and the sign at the bin) and the first admin code (three random words, for admins only; the app refuses anything shorter than three words of three or more letters). The admin code goes in `INITIAL_ADMIN_CODE`. Then open the site, type the admin code in the code box, and set the school code on Settings; until then only admins can get in.
 6. **Photo spot.** Set up a spot by the bin with good light and a plain lime-green poster board as the backdrop (spec open question 11).
+
+## Before the pilot
+
+Once Phase 0 is done and `main` is deployed:
+
+1. **Settings.** On the admin phone, check *Where the bin is* (it starts as "by the main office"), and the types and colors lists.
+2. **Try it on two phones.** Add an item with each add screen, claim one from another phone, unclaim it, mark one *It wasn't there*, then remove and restore one from the admin section.
+3. **Start with an empty list.** On the *Clear out* tab, run a clear-out to clear the test items and their photos. Until a first clear-out runs, a passed date counts from the oldest item still in the bin, so leftover test items can make families see "Any day now".
+   - Run it outside the 7 days before a second Friday, so the tab says it's an extra one and the second-Friday date stays on the calendar.
+   - In those 7 days it counts as that Friday's clear-out, and the tab won't offer another until the day after, so the real one that Friday would find no button.
+4. **Photograph the bin** in one sitting with *Bulk add*, at the photo spot.
+5. **Put the school code on the sign at the bin**, then send the link and the code to one grade for two weeks before the whole-school newsletter.
+
+## Repairs
+
+The admin section covers everything day to day. For anything it can't fix, the bucket holds:
+
+- `backups/items-<date>.json`: `items.json` as it was before each day's first change. To undo a bad write, copy the right backup over `items.json` in the Cloudflare dashboard (R2, then the bucket).
+- `activity/<date>/`: one file per action, with the ID of the phone that did it. `devices/<id>.json` has that phone's name.
+- `archive/<date>.json`: everything each clear-out closed, also downloadable as a CSV from the *Clear out* tab.
