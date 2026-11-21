@@ -17,6 +17,13 @@ export function shortDate(date: Date | string): string {
   return shortDateFormat.format(typeof date === "string" ? new Date(date) : date);
 }
 
+const longDateFormat = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, month: "short", day: "numeric", year: "numeric" });
+
+/** "Nov 21, 2026", for a date that may be from another year. */
+export function longDate(date: Date | string): string {
+  return longDateFormat.format(typeof date === "string" ? new Date(date) : date);
+}
+
 /** The time of day in Pacific time, as HHMMSS. */
 export function pacificTime(date: Date): string {
   const parts = timeFormat.formatToParts(date);

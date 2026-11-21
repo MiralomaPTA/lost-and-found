@@ -31,14 +31,17 @@ vi.mock("next/server", () => ({ after: (task: () => unknown) => void Promise.res
 vi.mock("@/server/deps", () => ({ getDeps: async () => (h.deps.current as { deps: unknown }).deps }));
 
 import { changeAdminCodeAction, changeSchoolCodeAction, enterCodeAction, leaveAdminAction, saveNameAction } from "@/app/actions/codes";
+import { resetTotalAction } from "@/app/actions/settings";
 import type { FormState } from "@/lib/form-state";
 import { CODE_COOKIE, PHONE_COOKIE, TRIES_COOKIE } from "@/server/cookies";
+import { addItem, changeItems, loadItems } from "@/server/items";
 import { getDevice, newPhoneId, setDeviceName } from "@/server/phones";
 import { MAX_WRONG_PER_ADDRESS, resetWrongCodeCounts } from "@/server/rate-limit";
 import { getVisitor } from "@/server/session";
 import { changeSchoolCode, SETTINGS_KEY } from "@/server/settings";
 import { memoryObjectStore } from "@/server/storage/memory";
-import { racingStore, testDeps } from "./helpers";
+import { totalsOf } from "@/server/totals";
+import { photoNames, racingStore, testDeps } from "./helpers";
 
 type Action = (prev: FormState, formData: FormData) => Promise<FormState>;
 
@@ -229,5 +232,22 @@ describe("the name", () => {
     await redirectOf(submit(enterCodeAction, { code: "otters" }));
     expect(await redirectOf(submit(saveNameAction, { name: "  Lee   family ", next: "/mine" }))).toBe("/mine");
     expect((await getVisitor()).device?.name).toBe("Lee family");
+  });
+});
+
+describe("resetting a total", () => {
+  it("is for admins only, and sets that total back to 0", async () => {
+    await changeItems(t.deps, (file) => {
+      for (let i = 0; i < 3; i++) addItem(file, { type: "Jacket", color: "Navy", has_name: false, ...photoNames(), phoneId: "a".repeat(32), name: "Volunteer" }, t.deps.now());
+      return { value: file, result: null };
+    });
+    await redirectOf(submit(enterCodeAction, { code: "otters" }));
+    expect((await submit(resetTotalAction, { total: "posted" })).error).toMatch(/isn't an admin/);
+    expect(totalsOf(await loadItems(t.deps, { fresh: true })).posted).toBe(3);
+
+    await becomeAdminViaForm();
+    expect((await submit(resetTotalAction, { total: "everything" })).error).toMatch(/Reload/);
+    expect((await submit(resetTotalAction, { total: "posted" })).saved).toBe("Items posted: back to 0 (it was 3).");
+    expect(totalsOf(await loadItems(t.deps, { fresh: true }))).toEqual({ posted: 0, claimed: 0, donated: 0 });
   });
 });

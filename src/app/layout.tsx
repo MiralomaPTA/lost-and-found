@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Figtree } from "next/font/google";
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
+import { readTotals, TotalsLine } from "@/components/Totals";
 import { dayLabel } from "@/lib/dates";
 import { config } from "@/server/config";
 import { getDeps } from "@/server/deps";
@@ -21,6 +22,8 @@ export const viewport: Viewport = { width: "device-width", initialScale: 1, them
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const visitor = await getVisitor();
   const clearOut = visitor.canBrowse ? nextClearOutFor(visitor.settings, await getItemsFile(), (await getDeps()).now()) : null;
+  // For every phone once the lost and found is open, the code screen included.
+  const totals = visitor.isOpen ? await readTotals() : null;
   return (
     <html lang="en" className={`${figtree.variable} h-full antialiased`}>
       {/* Pages with the bottom bar get room for it, so the footer isn't hidden underneath. */}
@@ -45,6 +48,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-6 pb-10">{children}</main>
         <footer className="flex flex-col items-center gap-1.5 border-t border-line px-4 py-6 text-center text-[13px] text-muted">
+          {totals && <TotalsLine totals={totals} />}
           <span>
             Questions or concerns? <a href={`mailto:${config.contactEmail}`}>{config.contactEmail}</a>
           </span>

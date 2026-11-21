@@ -109,6 +109,20 @@ export const clearOutSummarySchema = z.looseObject({
   run: z.string().regex(CLEAR_OUT_RUN).optional(),
 });
 
+/**
+ * One running total (spec: *Totals*): what it had reached before this list
+ * started, and when an admin last reset it to 0 (null: never). The items on
+ * this list add to it as they go; a clear-out folds them into `base`.
+ */
+const totalCounterSchema = z.looseObject({ base: z.number().int().nonnegative(), since: moment.nullable() });
+export const itemsTotalsSchema = z.looseObject({
+  posted: totalCounterSchema,
+  claimed: totalCounterSchema,
+  donated: totalCounterSchema,
+  /** How many of `clear_outs` are in the bases. One run by a server from before totals is added from its summary instead. */
+  clear_outs_counted: z.number().int().nonnegative().optional(),
+});
+
 export const itemsFileSchema = z.looseObject({
   version: z.literal(1),
   next_number: z.number().int().positive(),
@@ -120,6 +134,8 @@ export const itemsFileSchema = z.looseObject({
   last_clear_out: z.looseObject({ date: day, done_at: moment, run: z.string().regex(CLEAR_OUT_RUN).optional() }).nullable(),
   /** Every clear-out so far, oldest first. Each one carries the list forward to the next. */
   clear_outs: z.array(clearOutSummarySchema).optional(),
+  /** Items posted, claimed and donated so far (see totals.ts). Missing in files from before totals: they start from `clear_outs`. */
+  totals: itemsTotalsSchema.optional(),
   items: z.array(itemSchema),
 });
 
@@ -127,6 +143,7 @@ export type Claim = z.infer<typeof claimSchema>;
 export type Item = z.infer<typeof itemSchema>;
 export type ItemsFile = z.infer<typeof itemsFileSchema>;
 export type ClearOutSummary = z.infer<typeof clearOutSummarySchema>;
+export type ItemsTotals = z.infer<typeof itemsTotalsSchema>;
 
 export function emptyItemsFile(): ItemsFile {
   return { version: 1, next_number: 1, last_clear_out: null, items: [] };

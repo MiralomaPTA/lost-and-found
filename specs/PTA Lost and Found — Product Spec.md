@@ -200,7 +200,7 @@ The admin section has four tabs: *Items*, *Claims*, *Clear out* (section 7) and 
 - **Reported missing**, at the top of *Claims*, lists the items families marked *It wasn't there*, newest first, with the name the family gave and a short code for the phone. If an item is actually in the bin, *Restore* puts it back on the grid.
 - **Claims** lists recent claims, newest first. Each shows the item's thumbnail, the name the family gave, a short code for the phone (so two "Lee family" claims can be told apart), and when. *Undo claim* takes an optional note the family sees in *My items*, and the item goes back on the grid.
 - **Undo.** Removing an item, replacing a photo and undoing a claim each show an *Undo* bar for a few seconds afterward; it stays while the admin moves between admin pages. After that, a removed item can still be restored until the next clear-out. A replaced photo is kept while its *Undo* bar shows and deleted once the bar has gone, and at the latest ten minutes after the replacement: the next save of the list, or the next look at an admin page, deletes it, whatever happened to the admin's browser.
-- **Settings** has the school code, the admin code, where the bin is (it finishes "Pick it up from the lost-and-found bin …", shown with a preview), the types and colors lists, and *Download CSV* of the current list. An admin can add a type or color, rename one (the items on the list are renamed too, so they still match the filters), hide one (it's no longer offered when adding, fixing tags or filtering; items that have it keep it, and their other tags can still be fixed) and reorder them. At least one of each stays shown, and each list holds up to 40.
+- **Settings** has the school code, the admin code, where the bin is (it finishes "Pick it up from the lost-and-found bin …", shown with a preview), the totals with *Reset* (section 9), the types and colors lists, and *Download CSV* of the current list. An admin can add a type or color, rename one (the items on the list are renamed too, so they still match the filters), hide one (it's no longer offered when adding, fixing tags or filtering; items that have it keep it, and their other tags can still be fixed) and reorder them. At least one of each stays shown, and each list holds up to 40.
 - **CSVs** list each item's number, status, type, color, *Has a name*, when it was added and by whom (name and phone code), the claim that tells its story (the open or picked-up one, otherwise the latest), and when it was removed or donated. Like the admin pages, they show phone codes, never phone IDs. A cell a spreadsheet would run as a formula (a name typed as "=…") is written as text.
 - The activity log records every add, undone add, tag change, photo replacement, claim, unclaim, undo, removal, restore and clear-out, and every change on Settings and to the clear-out dates.
 
@@ -215,6 +215,7 @@ The admin section has four tabs: *Items*, *Claims*, *Clear out* (section 7) and 
   - Leaves claimed items *Claimed*: the app assumes the family picked them up, so they never count as donated. Their open claims close as *Picked up*.
   - Deletes from the bucket the photos and thumbnails of every item that is no longer available, removed items included, and any replaced photo still kept for *Undo*. It also deletes any photo file the list doesn't point at that is more than an hour old (a deletion that failed earlier); a newer one may belong to an add still on its way. A photo it can't delete is tried again after later admin pages open (at most every ten minutes per server, and every time on the *Clear out* tab), so nothing from before the clear-out keeps a photo for long.
   - Writes an archive file for that clear-out, with every item it closed and the counts.
+  - Adds the list's items to the running totals (section 9).
 
   The list then starts empty, with a fresh `items.json`. Item numbers carry on from where they were.
 - There is no undo. The confirmation is the safeguard: it says "Only do this after the bin has been emptied", and a clear-out is never started by the app.
@@ -226,6 +227,15 @@ The admin section has four tabs: *Items*, *Claims*, *Clear out* (section 7) and 
 - The app sends no email. Admins use the admin code instead of sign-in links, and families get no reminders or digests.
 - **lostandfound@miralomasf.com** is the address for questions and concerns, instead of asking at the school office. The app links to it (`mailto:`) in the footer of every page, on the help page, in the claim-conflict message, on a claimed item's page, next to an admin's note in *My items*, and on the add screens for getting an item removed.
 - The admins read that inbox (open question 15). Someone who writes to it shares their email address only with whoever reads it; the app itself still stores none.
+
+### 9. Totals
+
+- Three running totals: **items posted**, **claimed** and **donated**. They show as tiles on the code screen ("40 Posted · 1 Claimed · 0 Donated") and as the first line of the footer on every page ("40 items posted · 1 claimed · 0 donated"), for anyone once the lost and found is open.
+- **Posted** counts items added. An add the person took back, or an item an admin removed as a duplicate or mistake, doesn't count.
+- **Claimed** counts items claimed and kept: an unclaim, an undone claim or *It wasn't there* puts the item back or takes it off, so it doesn't count.
+- **Donated** counts items given away at clear-outs.
+- They keep counting across clear-outs. `items.json` keeps what each total had reached before the current list, and a clear-out adds the list's items to it, so adding and claiming cost no extra writes. A list from before totals starts from its past clear-outs' counts (every item on those lists counts as posted).
+- **Reset.** On *Settings*, an admin can set any one of them back to 0, with a second tap to confirm. It counts again from that moment, and Settings says since when. The activity log keeps what it was.
 
 ## Phase 2: AI tagging (later)
 
@@ -269,7 +279,7 @@ The bucket, "miraloma-pta-lost-and-found":
 
 | Object | Holds | Written when |
 | --- | --- | --- |
-| `items.json` | Every item since the last clear-out, with its claims, plus the next item number, which clear-out the list started after, and one line per past clear-out (its date, who ran it, its counts). About 100 KB at peak | Any add, tag change, photo replacement, claim, unclaim, undo, removal or restore, with a safe write (below) |
+| `items.json` | Every item since the last clear-out, with its claims, plus the next item number, which clear-out the list started after, and one line per past clear-out (its date, who ran it, its counts), and the running totals (section 9). About 100 KB at peak | Any add, tag change, photo replacement, claim, unclaim, undo, removal or restore, with a safe write (below) |
 | `devices/<id>.json` | One phone | The phone changes its name or enters the admin code, or once a day for `last_seen_at` |
 | `settings.json` | The school code, the admin code and other settings, the types and colors lists, and clear-out dates an admin moved or skipped | An admin changes something |
 | `activity/<date>/<time>-<id>.json` | One action | Every action, as a new file that is never rewritten |

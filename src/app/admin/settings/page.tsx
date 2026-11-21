@@ -3,14 +3,16 @@ import Link from "next/link";
 import { leaveAdminAction } from "@/app/actions/codes";
 import { BinDescriptionForm } from "@/components/admin/BinDescriptionForm";
 import { TagListEditor, type TagEntry } from "@/components/admin/TagListEditor";
+import { TotalsEditor, type TotalRowView } from "@/components/admin/TotalsEditor";
 import { CodeSettingForm } from "@/components/CodeSettingForm";
 import { NameForm } from "@/components/NameForm";
 import { shortDate } from "@/lib/dates";
 import { getDeps } from "@/server/deps";
-import { loadItems } from "@/server/items";
+import { loadItems, type ItemsFile } from "@/server/items";
 import { requireAdmin } from "@/server/session";
 import type { Settings } from "@/server/settings";
 import { inUseCounts, type ListKind } from "@/server/tag-lists";
+import { TOTAL_NAMES, totalsOf, totalsResetAt } from "@/server/totals";
 
 export const metadata: Metadata = { title: "Settings · Lost & Found" };
 
@@ -20,7 +22,13 @@ function tagEntries(settings: Settings, kind: ListKind, counts: Map<string, numb
   return kind === "types" ? [...settings.types].sort(bySort).map(entry) : [...settings.colors].sort(bySort).map((c) => ({ ...entry(c), swatch: c.swatch }));
 }
 
-/** The admin Settings tab (spec section 6): the codes, where the bin is, the types and colors, the CSV, and *Leave admin*. */
+function totalRows(file: ItemsFile): TotalRowView[] {
+  const totals = totalsOf(file);
+  const resetAt = totalsResetAt(file);
+  return TOTAL_NAMES.map((name) => ({ name, value: totals[name], since: resetAt[name] }));
+}
+
+/** The admin Settings tab (spec section 6): the codes, where the bin is, the totals, the types and colors, the CSV, and *Leave admin*. */
 export default async function SettingsPage() {
   const admin = await requireAdmin();
   const { settings } = admin;
@@ -66,6 +74,14 @@ export default async function SettingsPage() {
           Where the bin is
         </h2>
         <BinDescriptionForm current={settings.bin_description} />
+      </section>
+
+      <section aria-labelledby="h-totals" className="card flex flex-col gap-2.5 p-4">
+        <h2 id="h-totals" className="text-[17px] font-extrabold">
+          Totals
+        </h2>
+        <p className="hint">Everyone sees these on the code screen and at the bottom of every page. They keep counting across clear-outs.</p>
+        <TotalsEditor rows={totalRows(file)} />
       </section>
 
       <TagListEditor kind="types" entries={tagEntries(settings, "types", inUseCounts(file, "types"))} />
