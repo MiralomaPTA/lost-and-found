@@ -63,12 +63,23 @@ export class Docs {
       const { value, result } = change(current ? structuredClone(current.value) : null);
       if (value === undefined) return result;
       const checked = schema.parse(value);
-      const put = await this.store.put(key, encoder.encode(JSON.stringify(checked, null, 2) + "\n"), {
+      const body = encoder.encode(JSON.stringify(checked, null, 2) + "\n");
+      const put = await this.store.put(key, body, {
         contentType: "application/json",
         condition: current ? { ifMatch: current.etag } : { ifNoneMatch: "*" },
       });
       if (put.ok) {
         this.remember(key, checked, put.etag);
+        return result;
+      }
+      // Refused as out of date, but perhaps only because the write went
+      // through, its answer was lost, and the storage client's own retry was
+      // then refused. If the file now holds exactly what was sent, it's this
+      // write: done. (Running the change again would act twice.) Every saved
+      // change carries a fresh timestamp, so another writer's file won't match.
+      const now = await this.store.get(key);
+      if (now && sameBytes(now.body, body)) {
+        this.remember(key, checked, now.etag);
         return result;
       }
       this.cache.delete(key);
@@ -95,4 +106,10 @@ export class Docs {
       if (oldest !== undefined) this.cache.delete(oldest);
     }
   }
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }

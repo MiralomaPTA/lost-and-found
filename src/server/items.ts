@@ -4,7 +4,7 @@ import { pacificDate } from "@/lib/dates";
 import { HEX32 } from "@/server/cookies";
 import type { Deps } from "@/server/deps";
 import type { Change } from "@/server/docs";
-import { PHOTO_NAME } from "@/server/photos";
+import { PHOTO_NAME, photoKey } from "@/server/photos";
 import type { ObjectStore } from "@/server/storage/types";
 
 /**
@@ -30,8 +30,18 @@ export const CLIENT_REF = /^[0-9a-f]{32}$/;
 /** How long the person who added an item can take it back off the list themselves (spec: *Fixing a mistake*). */
 export const ADDER_UNDO_MS = 3 * 60 * 60 * 1000;
 
+/**
+ * How long an admin can undo *Replace photo*. The *Undo* bar goes after a few
+ * seconds (longer while it's pointed at); after this, the old photo is
+ * deleted by the next save of the list, whatever the admin's browser did.
+ */
+export const PHOTO_UNDO_MS = 10 * 60 * 1000;
+
 export const CLAIM_STATUSES = ["open", "unclaimed", "undone", "not found", "picked up"] as const;
 export const REMOVED_REASONS = ["returned in person", "gone from the bin", "duplicate or mistake", "thrown away", "other", "not in the bin", "add undone"] as const;
+/** The reasons an admin picks from when removing an item (spec section 6). The others are set by the app. */
+export const ADMIN_REMOVE_REASONS = ["returned in person", "gone from the bin", "duplicate or mistake", "thrown away", "other"] as const;
+export type AdminRemoveReason = (typeof ADMIN_REMOVE_REASONS)[number];
 
 const phoneId = z.string().regex(HEX32);
 const moment = z.string().refine((value) => !Number.isNaN(Date.parse(value)), "Not a date");
@@ -47,6 +57,8 @@ export const claimSchema = z.looseObject({
   ended_by: phoneId.nullable(),
   /** An admin's note when they undo the claim, shown in My items. */
   note: z.string().max(300).nullable(),
+  /** The claim closed because an admin removed the item (the family sees "Removed by an admin"). */
+  closed_by_removal: z.boolean().optional(),
 });
 
 export const itemSchema = z.looseObject({
@@ -70,6 +82,12 @@ export const itemSchema = z.looseObject({
   claims: z.array(claimSchema),
   /** The phone's reference for the upload that added it (see CLIENT_REF). */
   client_ref: z.string().regex(CLIENT_REF).optional(),
+  /**
+   * The photo an admin just replaced, kept so *Undo* can bring it back. It's
+   * deleted when the admin's *Undo* bar goes, by the next replacement, or by
+   * the clear-out.
+   */
+  previous_photo: z.object({ photo: z.string().regex(PHOTO_NAME), thumb: z.string().regex(PHOTO_NAME), replaced_at: moment }).optional(),
 });
 
 export const itemsFileSchema = z.looseObject({
@@ -114,6 +132,24 @@ export function openClaim(item: Item): Claim | undefined {
 
 // --- Writing ---
 
+/** Every photo file the list still points at: current photos and ones kept for *Undo*. */
+export function photosInUse(file: ItemsFile): Set<string> {
+  return new Set(file.items.flatMap((item) => [item.photo, item.thumb, ...(item.previous_photo ? [item.previous_photo.photo, item.previous_photo.thumb] : [])]));
+}
+
+/** Drops replaced photos whose *Undo* time is over, and says which files can go. */
+export function expirePreviousPhotos(file: ItemsFile, now: Date): string[] {
+  const expired: string[] = [];
+  for (const item of file.items) {
+    if (item.previous_photo && now.getTime() - Date.parse(item.previous_photo.replaced_at) > PHOTO_UNDO_MS) {
+      expired.push(item.previous_photo.photo, item.previous_photo.thumb);
+      delete item.previous_photo;
+    }
+  }
+  const inUse = photosInUse(file);
+  return expired.filter((name) => !inUse.has(name));
+}
+
 const lastBackup = new WeakMap<ObjectStore, string>();
 const encoder = new TextEncoder();
 
@@ -130,13 +166,17 @@ export async function changeItems<R>(deps: Deps, change: (file: ItemsFile) => Ch
   const backupDue = lastBackup.get(deps.store) !== today;
   let before: ItemsFile | null = null;
   let wrote = false;
+  let expired: string[] = [];
   const result = await deps.docs.update(ITEMS_KEY, itemsFileSchema, (current) => {
     before = backupDue && current ? structuredClone(current) : null;
     const outcome = change(current ?? emptyItemsFile());
     wrote = outcome.value !== undefined;
+    // Every save also lets go of replaced photos whose Undo time is over.
+    expired = outcome.value ? expirePreviousPhotos(outcome.value, deps.now()) : [];
     return outcome;
   });
   if (wrote && backupDue) await backUp(deps, today, before);
+  if (wrote && expired.length) await Promise.all(expired.map((name) => deps.store.delete(photoKey(name)).catch(() => undefined)));
   return result;
 }
 
@@ -157,6 +197,18 @@ async function backUp(deps: Deps, today: string, before: ItemsFile | null): Prom
   } catch (error) {
     console.error(`Couldn't write ${key}`, error);
   }
+}
+
+/**
+ * Saves the list if any replaced photo's *Undo* time is over, which lets
+ * those photos go (see changeItems). Admin pages run it after they render,
+ * so old photos go even if nothing else is saved for a while.
+ */
+export async function sweepReplacedPhotos(deps: Deps): Promise<void> {
+  const now = deps.now();
+  const due = (file: ItemsFile) => file.items.some((item) => item.previous_photo && now.getTime() - Date.parse(item.previous_photo.replaced_at) > PHOTO_UNDO_MS);
+  if (!due(await loadItems(deps))) return;
+  await changeItems(deps, (file) => (due(file) ? { value: file, result: null } : { result: null }));
 }
 
 // --- Changes. Each takes the list and changes it in place, so it can run inside changeItems. ---

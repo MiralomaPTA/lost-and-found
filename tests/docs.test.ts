@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { ConflictError, Docs } from "@/server/docs";
 import { memoryObjectStore } from "@/server/storage/memory";
+import type { ObjectStore } from "@/server/storage/types";
 import { racingStore } from "./helpers";
 
 const counter = z.object({ count: z.number() });
@@ -85,5 +86,35 @@ describe("Docs", () => {
     await base.put("counter.json", new TextEncoder().encode('{"count":5}'));
     expect(await docs.read("counter.json", counter)).toEqual({ count: 1 });
     expect(await docs.read("counter.json", counter, { fresh: true })).toEqual({ count: 5 });
+  });
+});
+
+describe("a write whose answer was lost", () => {
+  it("counts as done when the file holds exactly what was sent, without running the change again", async () => {
+    const inner = memoryObjectStore();
+    let armed = true;
+    const store: ObjectStore = {
+      ...inner,
+      async put(key, body, options) {
+        const result = await inner.put(key, body, options);
+        // The write lands, but the answer comes back as a refusal.
+        if (armed && options?.condition && result.ok) {
+          armed = false;
+          return { ok: false, reason: "conflict" };
+        }
+        return result;
+      },
+    };
+    const docs = new Docs(store, 0);
+    const schema = z.object({ n: z.number(), at: z.string() });
+    await docs.update("x.json", schema, () => ({ value: { n: 1, at: "first" }, result: null }));
+    let runs = 0;
+    const result = await docs.update("x.json", schema, (current) => {
+      runs++;
+      return { value: { n: current!.n + 1, at: "second" }, result: `ran ${runs}` };
+    });
+    expect(result).toBe("ran 1");
+    expect(runs).toBe(1);
+    expect(await docs.read("x.json", schema, { fresh: true })).toEqual({ n: 2, at: "second" });
   });
 });

@@ -166,7 +166,7 @@ export function archivedItemView(item: Archive["items"][number], settings: Setti
 
 // --- My items ---
 
-export type MyClaimState = "claimed" | "not there" | "put back" | "picked up";
+export type MyClaimState = "claimed" | "not there" | "put back" | "removed" | "picked up";
 
 export interface MyClaimView {
   itemId: string;
@@ -206,8 +206,10 @@ export function myItemsView(file: ItemsFile, archive: Archive | null, phoneId: s
   for (const item of file.items) {
     for (const claim of item.claims) {
       if (claim.device_id !== phoneId || claim.status === "unclaimed") continue;
+      // An admin closes a claim either by undoing it (the item goes back on the grid) or by removing the item.
+      const removedWithIt = claim.status === "undone" && claim.closed_by_removal === true;
       const state: MyClaimState =
-        claim.status === "open" ? "claimed" : claim.status === "not found" ? "not there" : claim.status === "undone" ? "put back" : "picked up";
+        claim.status === "open" ? "claimed" : claim.status === "not found" ? "not there" : removedWithIt ? "removed" : claim.status === "undone" ? "put back" : "picked up";
       current.push({
         itemId: item.id,
         claimId: claim.id,
@@ -219,7 +221,7 @@ export function myItemsView(file: ItemsFile, archive: Archive | null, phoneId: s
         claimedAt: claim.claimed_at,
         state,
         notThere: state === "not there" && claim.ended_at ? relativeDayLabel(claim.ended_at, now) : null,
-        note: state === "put back" ? claim.note : null,
+        note: state === "put back" || state === "removed" ? claim.note : null,
         href: item.status === "available" || item.status === "claimed" ? `/items/${item.id}` : null,
       });
     }

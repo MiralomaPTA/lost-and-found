@@ -62,6 +62,11 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/ite
       <div className="-mx-4 -mt-6 flex flex-col sm:mx-0 sm:mt-0 sm:gap-3">
         <div className="flex h-14 items-center justify-between gap-3 border-b border-line bg-white px-4 sm:rounded-2xl sm:border">
           <BackLink href={gridHref} />
+          {visitor.isAdmin && (
+            <Link href={`/admin/items/${id}`} className="ml-auto text-[13px] font-bold">
+              Open in admin
+            </Link>
+          )}
           {view.kind === "on-list" && view.position && (
             <span className="text-[13px] font-semibold text-muted">
               {view.position.index + 1} of {view.position.total} · {query.sort === "newest" ? "Newest first" : "Oldest first"}
