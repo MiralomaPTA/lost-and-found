@@ -80,6 +80,9 @@ export default async function HelpPage() {
           </li>
           <li>Then pick it up from {bin}. Nobody asks for proof, so only claim what&apos;s yours.</li>
           <li>
+            Recognize a friend&apos;s things? Open the item and tap <strong>Send to a friend</strong> to send them the photo and a link to it.
+          </li>
+          <li>
             Not in the bin when you looked? Tap <strong>It wasn&apos;t there</strong> in My items. It comes off the list, and an admin puts it back if it turns up.
           </li>
           <li>

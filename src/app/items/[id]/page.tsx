@@ -8,6 +8,7 @@ import { CodeGate } from "@/components/CodeGate";
 import { BackLink } from "@/components/item/BackLink";
 import { ItemTags } from "@/components/item/ItemTags";
 import { PhotoPane } from "@/components/item/PhotoPane";
+import { SendToFriend } from "@/components/item/SendToFriend";
 import { gridSearch, parseGridQuery } from "@/lib/grid-query";
 import { findArchivedItem } from "@/server/archives";
 import { config } from "@/server/config";
@@ -128,6 +129,8 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/ite
           >
             <div className="flex flex-col gap-3">
               <ClaimControls target={{ id: view.card.id, label: view.card.label, thumb: view.card.thumb, title: `${view.card.type} · ${view.card.color}` }} size="page" />
+              {/* For someone who recognizes a friend's things. */}
+              {view.state === "available" && <SendToFriend src={view.photo} itemId={view.card.id} />}
               <p className="flex items-center gap-1.5 text-[13px] text-muted">
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z" />
