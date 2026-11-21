@@ -81,3 +81,16 @@ export function relativeDayLabel(date: string, now: Date): string {
   if (days === 1) return "yesterday";
   return dateLabel(date);
 }
+
+const clockFormat = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, hour: "numeric", minute: "2-digit", hour12: true });
+const weekdayFormat = new Intl.DateTimeFormat("en-US", { timeZone: TIME_ZONE, weekday: "short" });
+
+/** "Today, 8:40 am", "Yesterday, 3:10 pm", "Fri, 3:10 pm" (this week), or "Nov 5, 3:10 pm", in Pacific time. */
+export function whenLabel(moment: string, now: Date): string {
+  const time = clockFormat.format(new Date(moment)).replace(" AM", " am").replace(" PM", " pm");
+  const days = daysBetween(moment, now);
+  if (days === 0) return `Today, ${time}`;
+  if (days === 1) return `Yesterday, ${time}`;
+  if (days > 1 && days < 7) return `${weekdayFormat.format(new Date(moment))}, ${time}`;
+  return `${shortDate(moment)}, ${time}`;
+}

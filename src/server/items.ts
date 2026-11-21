@@ -32,6 +32,9 @@ export const ADDER_UNDO_MS = 3 * 60 * 60 * 1000;
 
 export const CLAIM_STATUSES = ["open", "unclaimed", "undone", "not found", "picked up"] as const;
 export const REMOVED_REASONS = ["returned in person", "gone from the bin", "duplicate or mistake", "thrown away", "other", "not in the bin", "add undone"] as const;
+/** The reasons an admin picks from when removing an item (spec section 6). The others are set by the app. */
+export const ADMIN_REMOVE_REASONS = ["returned in person", "gone from the bin", "duplicate or mistake", "thrown away", "other"] as const;
+export type AdminRemoveReason = (typeof ADMIN_REMOVE_REASONS)[number];
 
 const phoneId = z.string().regex(HEX32);
 const moment = z.string().refine((value) => !Number.isNaN(Date.parse(value)), "Not a date");
@@ -70,6 +73,12 @@ export const itemSchema = z.looseObject({
   claims: z.array(claimSchema),
   /** The phone's reference for the upload that added it (see CLIENT_REF). */
   client_ref: z.string().regex(CLIENT_REF).optional(),
+  /**
+   * The photo an admin just replaced, kept so *Undo* can bring it back. It's
+   * deleted when the admin's *Undo* bar goes, by the next replacement, or by
+   * the clear-out.
+   */
+  previous_photo: z.object({ photo: z.string().regex(PHOTO_NAME), thumb: z.string().regex(PHOTO_NAME) }).optional(),
 });
 
 export const itemsFileSchema = z.looseObject({

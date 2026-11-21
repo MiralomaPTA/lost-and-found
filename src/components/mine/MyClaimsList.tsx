@@ -15,6 +15,7 @@ const BADGES: Record<MyClaimState, { text: string; className: string }> = {
   claimed: { text: "Claimed", className: "bg-brand-soft text-brand-dark" },
   "not there": { text: "Not in the bin", className: "bg-rule text-body" },
   "put back": { text: "Put back by an admin", className: "bg-warn-soft text-warn" },
+  removed: { text: "Removed by an admin", className: "bg-warn-soft text-warn" },
   "picked up": { text: "Picked up", className: "bg-ok-soft text-ok" },
 };
 
@@ -157,7 +158,7 @@ export function MyClaimsList({ rows, contactEmail }: { rows: MyClaimView[]; cont
                     </ActionButton>
                   </div>
                 )}
-                {row.state === "put back" && (
+                {(row.state === "put back" || row.state === "removed") && (
                   <>
                     {row.note && <p className="text-sm text-body">“{row.note}”</p>}
                     <a href={`mailto:${contactEmail}`} className="text-sm font-bold">

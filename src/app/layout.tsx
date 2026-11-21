@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Brand />
             <div className="flex items-center gap-3">
               {visitor.isAdmin && (
-                <Link href="/admin/settings" className="admin-badge no-underline hover:text-ink">
+                <Link href="/admin/items" className="admin-badge no-underline hover:text-ink">
                   Admin
                 </Link>
               )}
@@ -50,7 +50,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           </span>
           {visitor.isAdmin ? (
             <span>
-              This phone is an admin{visitor.device?.name ? `: ${visitor.device.name}` : ""} · <Link href="/admin/settings">Settings</Link>
+              This phone is an admin{visitor.device?.name ? `: ${visitor.device.name}` : ""} · <Link href="/admin/items">Admin</Link>
             </span>
           ) : (
             <span>

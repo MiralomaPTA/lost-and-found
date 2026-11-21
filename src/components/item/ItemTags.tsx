@@ -33,6 +33,7 @@ export function ItemTags({
   types,
   colors,
   palette,
+  heading: Heading = "h1",
 }: {
   /** Null for an item that's no longer on the list: its tags can't change. */
   itemId: string | null;
@@ -41,6 +42,8 @@ export function ItemTags({
   colors: ColorChoice[];
   /** Every color's swatch by name, including ones admins have since turned off. */
   palette: Record<string, SwatchValue>;
+  /** The admin item page has its own h1 (the item's number). */
+  heading?: "h1" | "h2";
 }) {
   const [tags, setTags] = useState(initial);
   const [editing, setEditing] = useState(false);
@@ -106,7 +109,7 @@ export function ItemTags({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
-        <h1 className="text-[28px] leading-[1.1] font-extrabold">{tags.type}</h1>
+        <Heading className="text-[28px] leading-[1.1] font-extrabold">{tags.type}</Heading>
         {itemId && (
           <button
             ref={fixButton}

@@ -194,10 +194,10 @@ Each item gets three tags and nothing else: type, color, and whether it has a na
 The admin section has four tabs: *Items*, *Claims*, *Clear out* (section 7) and *Settings*.
 
 - **Items** shows the same grid, with the same ages and sort, every status, a status filter (available, claimed, removed), and each item's ID and who added it. Tapping a card opens its tags, plus *Replace photo* and *Remove*.
-- **Remove** asks for a reason: returned in person, gone from the bin, duplicate or mistake, thrown away, or other. A removed item can be restored until the next clear-out.
+- **Remove** asks for a reason: returned in person, gone from the bin, duplicate or mistake, thrown away, or other. A removed item can be restored until the next clear-out. Removing a claimed item closes its claim, and the family sees "Removed by an admin" in *My items*.
 - **Reported missing**, at the top of *Claims*, lists the items families marked *It wasn't there*, newest first, with the name the family gave and a short code for the phone. If an item is actually in the bin, *Restore* puts it back on the grid.
 - **Claims** lists recent claims, newest first. Each shows the item's thumbnail, the name the family gave, a short code for the phone (so two "Lee family" claims can be told apart), and when. *Undo claim* takes an optional note the family sees in *My items*, and the item goes back on the grid.
-- **Undo.** Removing an item, replacing a photo and undoing a claim each show an *Undo* bar for a few seconds afterward. After that, a removed item can still be restored until the next clear-out.
+- **Undo.** Removing an item, replacing a photo and undoing a claim each show an *Undo* bar for a few seconds afterward; it stays while the admin moves between admin pages. After that, a removed item can still be restored until the next clear-out. A replaced photo is kept while its *Undo* bar shows and deleted once the bar has gone (or by the clear-out, if the admin left first).
 - The activity log records every add, undone add, tag change, photo replacement, claim, unclaim, undo, removal, restore and clear-out.
 
 ### 7. Clear-outs (admins)
@@ -269,7 +269,7 @@ The bucket, "miraloma-pta-lost-and-found":
 | `activity/<date>/<time>-<id>.json` | One action | Every action, as a new file that is never rewritten |
 | `archive/<clear-out date>.json` | Every item that clear-out closed, without photos, and the counts | Once, by that clear-out |
 | `backups/items-<date>.json` | A copy of `items.json` as it was before that day's first write | The first write of each day |
-| `photos/<random>.jpg`, `photos/<random>-thumb.jpg` | Each item's photo and thumbnail | An upload; deleted by the clear-out, or when an admin replaces the photo |
+| `photos/<random>.jpg`, `photos/<random>-thumb.jpg` | Each item's photo and thumbnail | An upload; deleted by the clear-out, or when an admin replaces the photo (once the *Undo* bar has gone) |
 
 | Record | Fields |
 | --- | --- |

@@ -38,7 +38,7 @@ const BUSY = "Lots of changes are happening at once. Try again.";
 
 export type AddResult = { ok: true; item: Item; existing: boolean } | { ok: false; reason: "bad-request" | "busy"; message: string };
 
-function checkImage(bytes: Uint8Array, maxSide: number, maxBytes: number) {
+export function checkImage(bytes: Uint8Array, maxSide: number, maxBytes: number) {
   if (bytes.length === 0 || bytes.length > maxBytes) return null;
   const jpeg = cleanJpeg(bytes);
   if (!jpeg || jpeg.width > maxSide || jpeg.height > maxSide || jpeg.width < 16 || jpeg.height < 16) return null;
