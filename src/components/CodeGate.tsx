@@ -1,4 +1,5 @@
 import { CodeForm } from "@/components/CodeForm";
+import { CurrentTotalsTiles } from "@/components/Totals";
 
 const STEPS = [
   <>Scroll the photos</>,
@@ -22,6 +23,7 @@ export function CodeGate({ isOpen, next }: { isOpen: boolean; next?: string }) {
           Everything that lands in the bin gets photographed and posted here. If something is yours, tap it and pick it up. Found something? Add it.
         </p>
       </div>
+      {isOpen && <CurrentTotalsTiles />}
       {!isOpen && (
         <p role="status" className="notice bg-warn-soft text-warn">
           The lost and found isn&apos;t open yet. The PTA newsletter will say when it is.

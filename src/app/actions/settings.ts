@@ -8,6 +8,7 @@ import { ConflictError } from "@/server/docs";
 import { changeItems } from "@/server/items";
 import { currentAdmin } from "@/server/session";
 import { updateSettings, type Settings } from "@/server/settings";
+import { isTotalName, resetTotal, type TotalName } from "@/server/totals";
 import { addEntry, BIN_DESCRIPTION_MAX, cleanBinDescription, editEntry, renameOnList, reorderEntries, type ListChange, type ListKind } from "@/server/tag-lists";
 
 /*
@@ -89,4 +90,28 @@ export async function editTagAction(kind: unknown, name: unknown, change: unknow
 /** *Reorder*: the whole list's names, in their new order. */
 export async function reorderTagsAction(kind: unknown, names: unknown): Promise<ListAnswer> {
   return changeList(kind, "list_reordered", (settings, k) => reorderEntries(settings, k, names));
+}
+
+const TOTAL_LABELS: Record<TotalName, string> = { posted: "Posted", claimed: "Claimed", donated: "Donated" };
+
+/** *Reset* on one of the totals: it starts again from 0 now. The activity log keeps what it was. */
+export async function resetTotalAction(prev: FormState, formData: FormData): Promise<FormState> {
+  const attempt = (prev.attempt ?? 0) + 1;
+  const admin = await currentAdmin();
+  if (!admin) return { error: NOT_ADMIN, attempt };
+  const name = formData.get("total");
+  if (!isTotalName(name)) return { error: "Reload the page and try again.", attempt };
+  const deps = await getDeps();
+  try {
+    const was = await changeItems<number>(deps, (file) => {
+      const { next, was } = resetTotal(file, name, deps.now());
+      return { value: next, result: was };
+    });
+    await logActivity(deps, { actor: admin.phoneId, as_admin: true, action: "total_reset", detail: { total: name, was } });
+    refresh();
+    return { ...NO_STATE, saved: `${TOTAL_LABELS[name]} is back to 0. It was ${was.toLocaleString("en-US")}.`, attempt };
+  } catch (error) {
+    if (error instanceof ConflictError) return { error: BUSY, attempt };
+    throw error;
+  }
 }

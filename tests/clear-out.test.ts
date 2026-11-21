@@ -256,6 +256,8 @@ describe("closing the list", () => {
       next_number: 4,
       last_clear_out: { date: "2026-12-11", done_at: now.toISOString(), run: RUN },
       clear_outs: [closed.summary],
+      // The three items go into the totals: one donated, one claimed, and the one that wasn't there still counts as posted.
+      totals: { posted: { base: 3, since: null }, claimed: { base: 1, since: null }, donated: { base: 1, since: null } },
       items: [],
     });
   });

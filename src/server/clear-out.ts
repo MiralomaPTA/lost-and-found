@@ -18,6 +18,7 @@ import { changeItems, loadItems, openClaim, photosInUse, type ClearOutSummary, t
 import { isPhotoName, photoKey } from "@/server/photos";
 import { forEachLimited } from "@/server/pool";
 import type { Settings } from "@/server/settings";
+import { foldTotals } from "@/server/totals";
 
 /*
  * Clear-outs (spec section 7). On the day, volunteers empty the bin and an
@@ -260,6 +261,8 @@ export function closeList(file: ItemsFile, input: { date: string; adminId: strin
     next_number: file.next_number,
     last_clear_out: { date: input.date, done_at: at, run: input.run },
     clear_outs: [...(file.clear_outs ?? []), summary],
+    // The totals keep counting across clear-outs: this list's items go into their stored part.
+    totals: foldTotals(file, items),
     items: [],
   };
   return { archive, next, photos, summary };
