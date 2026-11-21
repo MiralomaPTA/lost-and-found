@@ -25,7 +25,6 @@ export default async function AddPage() {
         href="/add/bulk"
         title="Bulk add"
         text="At the bin with a pile of things? Photograph them one after another: shutter, then color."
-        note="Best at the photo spot, on the plain backdrop"
         dark
         icon={
           <>
@@ -52,7 +51,7 @@ export default async function AddPage() {
           Before you start
         </h2>
         <ul className="flex list-disc flex-col gap-1.5 pl-5 text-sm leading-relaxed text-body">
-          <li>Turn name labels away from the camera, or crop them out.</li>
+          <li>For privacy, turn name labels away from the camera, or crop them out.</li>
           <li>Phones, keys, wallets, glasses and medication go to the office, not here.</li>
           <li>
             Made a mistake? In bulk add you can undo it until you leave. After adding one from a photo, you can undo it until you pick the next photo. After that, anyone can fix the tags. To have it removed, email{" "}
@@ -65,7 +64,7 @@ export default async function AddPage() {
   );
 }
 
-function Choice({ href, title, text, note, icon, dark = false }: { href: string; title: string; text: string; note?: string; icon: ReactNode; dark?: boolean }) {
+function Choice({ href, title, text, icon, dark = false }: { href: string; title: string; text: string; icon: ReactNode; dark?: boolean }) {
   return (
     <Link href={href} className="card flex items-center gap-3.5 py-[18px] pr-3 pl-4 text-ink no-underline hover:border-field hover:text-ink">
       <span className={`flex h-[52px] w-[52px] flex-none items-center justify-center rounded-[14px] ${dark ? "bg-ink text-white" : "bg-brand-soft text-brand-dark"}`}>
@@ -76,7 +75,6 @@ function Choice({ href, title, text, note, icon, dark = false }: { href: string;
       <span className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-lg font-extrabold">{title}</span>
         <span className="text-sm leading-snug text-body">{text}</span>
-        {note && <span className="text-xs font-bold text-brand-dark">{note}</span>}
       </span>
       <svg aria-hidden="true" className="flex-none text-muted" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 5l7 7-7 7" />
