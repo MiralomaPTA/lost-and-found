@@ -12,7 +12,8 @@ import { uploadItem } from "@/lib/upload";
 /**
  * *Add one from a photo* (spec section 4): pick a photo already on the phone,
  * crop it by hand, tag it, add it. Nothing is pre-selected. After adding, a
- * bar offers *Undo* (until the screen is left) and *Add another*.
+ * bar offers *Undo* (until the screen is left) and *Add another*, and the
+ * add button becomes *See it in All items*.
  */
 
 type Status =
@@ -236,9 +237,16 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
         <fieldset disabled={saving || added} className="contents">
           <TagPicker types={types} colors={colors} type={type} color={color} hasName={hasName} onType={setType} onColor={setColor} onHasName={setHasName} />
         </fieldset>
-        <button type="button" onClick={() => void save()} aria-disabled={!ready} className="btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
-          {saving ? `Adding… ${Math.round(status.progress * 100)}%` : added ? "Added" : "Add to the grid"}
-        </button>
+        {added ? (
+          // Newest first, so what was just added is at the top of the grid. Leaving ends its Undo.
+          <Link href="/" className="btn-primary">
+            See it in All items
+          </Link>
+        ) : (
+          <button type="button" onClick={() => void save()} aria-disabled={!ready} className="btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
+            {saving ? `Adding… ${Math.round(status.progress * 100)}%` : "Add to the grid"}
+          </button>
+        )}
         {!ready && !saving && !added && picked && <p className="text-center text-xs text-muted">Pick a type and a color first.</p>}
         <p className="text-center text-xs text-muted">Only add things that are in the lost-and-found bin.</p>
         <p className="text-center text-xs text-muted">

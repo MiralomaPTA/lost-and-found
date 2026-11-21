@@ -172,7 +172,7 @@ Each item gets three tags and nothing else: type, color, and whether it has a na
 - It opens the phone's photo picker for one photo.
 - **Crop by hand.** The photo appears with a square crop box. The browser runs the same backdrop trim first to place the box; since most of these photos aren't on the backdrop, the box usually starts as the largest square around the middle. The person drags the box to move it and pinches, or drags a corner, to resize it. *Reset* puts it back where it started. The help line suggests cropping out any written name.
 - The same three tags sit underneath. Nothing is pre-selected; *Add to the grid* is enabled once a type and a color are picked.
-- After saving, a bar says "Added to the grid" with *Undo*, which lasts until the person picks the next photo or leaves the screen, and *Add another* picks the next photo.
+- After saving, a bar says "Added to the grid" with *Undo*, which lasts until the person picks the next photo or leaves the screen, and *Add another* picks the next photo. *Add to the grid* becomes *See it in All items*, which goes to the grid, where the new item is first.
 
 **For both:**
 
