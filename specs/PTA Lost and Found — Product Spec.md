@@ -114,7 +114,7 @@ stateDiagram-v2
 - **From the grid.** Every card has a *This is mine* button under the photo, so a family can claim without opening the item. Tapping the photo itself opens the item page, which has the same button.
 - **No confirmation step.** The claim takes effect at once, because undoing it is just as quick:
   - The card stays where it is, dimmed, showing "In My items" and an *Undo* button, so the grid doesn't shift under the family's thumb. It leaves the grid the next time the page loads.
-  - A bar at the bottom says where to go: "Pick it up from the lost-and-found bin by the main office." An admin sets the bin's description (open question 7).
+  - A bar at the bottom says where to go: "Pick it up from the lost-and-found bin on the lower level near the cafeteria." An admin sets the bin's description (open question 7).
   - *Undo* puts the item straight back on the list.
 - The first claim or add from a phone also asks for the name admins will see (see *Everyone* above). Later claims and adds don't ask again.
 - A family can also unclaim from *My items* at any time before the clear-out. The item goes back on the grid in its old place, by date added.
@@ -339,7 +339,7 @@ The bucket, "miraloma-pta-lost-and-found":
    - As lostandfound@, create a Cloudflare account, an R2 bucket, and an API token that can reach only that bucket. The app creates its files on first use.
    - Check safe writes before building on them. A short script writes an object, changes it, then tries a write with the old ETag (`If-Match`) and confirms that R2 refuses it. If R2's S3 interface doesn't honor `If-Match`, writes to `items.json` and `settings.json` go through a small Cloudflare Worker that uses R2's own conditional write (`onlyIf`). That Worker fits the free plan, and the rest of the design stays the same. **Done Nov 20, 2026: every check passed (`npm run check:r2`), so the Worker isn't needed.**
    - Put the first admin code in an environment variable. The app copies it to `settings.json` on first use, and admins can change it from Settings.
-   - Create the Vercel project, add the GitHub repository secrets and the R2 credentials, and add the DNS record for lostandfound.miralomasf.com.
+   - Create the Vercel project, add the GitHub repository secrets and the R2 credentials, and add the DNS record for lost.miralomasf.com.
    - Set up a photo spot by the bin with good light and a plain backdrop (open question 11).
    - Pick the first school code and put it on a sign at the bin. Give the admin code to the admins only.
 2. **Phase 1: MVP.** **Everything but the pilot was built by Nov 21, 2026.**
@@ -391,7 +391,7 @@ Success measures: the share of items claimed before each clear-out, items donate
 | Unclaimed items | Donated at the monthly clear-out, on the second Friday of each month. Admins can move or skip a date |
 | Clear-out | Items still on the list are donated. Claimed items are assumed picked up: they stay *Claimed* and their claims close as *Picked up*. All photos are deleted. Run only by an admin tapping *Clear out* in the admin section after the bin has been emptied, with a confirmation and no undo; never automatic |
 | Workspace account | A new account, lostandfound@miralomasf.com, that owns the Cloudflare and Vercel accounts and is the contact address for questions and concerns. The app sends nothing from it |
-| Hostname | lostandfound.miralomasf.com |
+| Hostname | lost.miralomasf.com |
 | Languages | English only |
 | Hosting | Vercel Hobby for the app, Cloudflare R2 for photos and JSON; code in the MiralomaPTA GitHub organization. Everything on Cloudflare was considered and set aside for now (see *Hosting*) |
 | Budget | Zero added cost |
@@ -406,7 +406,7 @@ Each has a proposed default, and the build follows the default unless it is chan
 4. **Retention.** Default: each clear-out deletes the photos of everything off the list, and keeps the rest of each row.
 5. **Who gets the admin code.** Admins now do everything helpers used to besides adding. Default: the PTA's lost-and-found leads and the school office staff, so someone on site can undo a claim or restore an item.
 6. **Starting types and colors.** Default: the lists under *Storage layout*.
-7. **Where the bin is.** The text shown when claiming. Default: "by the main office".
+7. **Where the bin is.** The text shown when claiming. **Answered: "on the lower level near the cafeteria".** Admins change it on Settings; new buckets start with "by the main office".
 8. **Sizing.** Default: about 75 new items a week and 300 on the list at peak. Is that close?
 9. **The school code.** Default: a short word that is easy to type, printed in the newsletter and on a sign at the bin, and changed at the start of each school year.
 10. **Who creates lostandfound@miralomasf.com and adds the DNS record?**

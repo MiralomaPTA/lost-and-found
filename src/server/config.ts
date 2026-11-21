@@ -29,7 +29,7 @@ function storageKind(): StorageKind {
 }
 
 export const config = {
-  /** Public base URL, e.g. https://lostandfound.miralomasf.com */
+  /** Public base URL, e.g. https://lost.miralomasf.com */
   appUrl: (env.APP_URL ?? "http://localhost:3000").replace(/\/$/, ""),
   /** "local" writes to ./.data; "r2" uses the Cloudflare R2 bucket. */
   storage,
