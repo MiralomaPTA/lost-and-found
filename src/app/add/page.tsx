@@ -22,8 +22,6 @@ export default async function AddPage() {
         <p className="text-[15px] leading-relaxed text-muted">Anyone can add. It shows on the grid right away.</p>
       </div>
 
-      <p className="notice bg-warn-soft text-warn">Only add things that are in the lost-and-found bin {visitor.settings.bin_description}.</p>
-
       <Choice
         href="/add/bulk"
         title="Bulk add"
