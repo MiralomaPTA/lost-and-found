@@ -135,7 +135,7 @@ stateDiagram-v2
 
 ### 4. Adding items (anyone)
 
-Anyone with the school code can add an item, and it shows on the grid right away, with no approval step. The item should already be in the bin, but the add screens don't say so: a warning only gave people the idea (open question 13).
+Anyone with the school code can add an item, and it shows on the grid right away, with no approval step. The item should already be in the bin, but the add screens don't say so (open question 13).
 
 *Add* in the bottom bar offers two ways in:
 
@@ -412,7 +412,7 @@ Each has a proposed default, and the build follows the default unless it is chan
 10. **Who creates lostandfound@miralomasf.com and adds the DNS record?**
 11. **Backdrop for the photo spot.** Default: a solid lime-green poster board or mat, a color kids' things rarely come in. Items the same color as the backdrop keep the square photo.
 12. **Bulk add on small phones.** With 11 types and 15 colors, the bulk add screen fills an 844 px-tall phone with no room to spare, and admins can add more of either. Default: the type chips scroll sideways in one row when they don't fit, and the colors list stays at 16 or fewer.
-13. **Adding something that isn't in the bin yet.** **Answered: no warning.** The add screens used to say "Only add things that are in the lost-and-found bin", which put the idea in people's heads. There's no checkbox or other confirmation either.
+13. **Adding something that isn't in the bin yet.** **Answered: no warning.** Telling people to add only what's in the bin would put the idea of adding other things in their heads, so the add screens don't mention it. There's no checkbox or other confirmation either.
 14. **The admin code.** The app requires at least three words of three or more letters (15+ characters). Default: three random words. Admins see it on Settings, and it changes whenever someone who has it steps down and at the start of each school year.
 15. **Who reads lostandfound@.** Default: its mail forwards to everyone who has the admin code, and whoever replies first handles it. The forwarding list is updated whenever the admin code changes.
 

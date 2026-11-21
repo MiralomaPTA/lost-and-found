@@ -17,9 +17,8 @@ export default async function AddPage() {
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-3">
-      <div className="-mx-4 -mt-6 flex flex-col gap-1.5 border-b border-line bg-white px-4 pt-5 pb-4 sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border">
+      <div className="-mx-4 -mt-6 border-b border-line bg-white px-4 pt-5 pb-4 sm:mx-0 sm:mt-0 sm:rounded-2xl sm:border">
         <h1 className="text-[26px] leading-tight font-extrabold">Add an item</h1>
-        <p className="text-[15px] leading-relaxed text-muted">Anyone can add. It shows on the grid right away.</p>
       </div>
 
       <Choice
