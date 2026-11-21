@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { undoAddAction } from "@/app/actions/items";
+import { undoAddAction, undoUploadAction } from "@/app/actions/items";
 import { CropArea } from "@/components/add/CropArea";
 import { TagPicker, type ColorChoice } from "@/components/add/TagPicker";
 import { boxRect, initialBox, type Box } from "@/lib/image/crop-box";
@@ -28,6 +28,20 @@ interface Picked {
   start: Box;
 }
 
+/**
+ * The last try that didn't get an answer. The server may have saved it, so
+ * the next try reuses its reference (the server then just updates the tags),
+ * unless the photo or the crop changed: then the old try is taken back first,
+ * so a crop that showed a name can't stay on the grid.
+ */
+interface Unanswered {
+  ref: string;
+  picked: Picked;
+  box: Box;
+}
+
+const sameBox = (a: Box, b: Box) => a.x === b.x && a.y === b.y && a.size === b.size;
+
 export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; colors: ColorChoice[]; contactEmail: string }) {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [box, setBox] = useState<Box | null>(null);
@@ -37,8 +51,9 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
   const [status, setStatus] = useState<Status>({ kind: "empty" });
   const [error, setError] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState("");
+  const [undoing, setUndoing] = useState(false);
   const input = useRef<HTMLInputElement>(null);
-  const clientRef = useRef<string | null>(null);
+  const unanswered = useRef<Unanswered | null>(null);
   const bar = useRef<HTMLDivElement>(null);
 
   const saving = status.kind === "saving";
@@ -58,13 +73,26 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
 
   useEffect(() => () => picked?.image.close(), [picked]);
 
+  // The bar's buttons replace the one that was pressed: keep keyboard focus there.
+  const undone = status.kind === "undone";
   useEffect(() => {
     if (added) bar.current?.querySelector("button")?.focus();
-  }, [added]);
+    if (undone) bar.current?.querySelector<HTMLButtonElement>("[data-another]")?.focus();
+  }, [added, undone]);
+
+  /** Takes back an unanswered try, if there is one. False if that couldn't be confirmed. */
+  async function settleUnanswered(): Promise<boolean> {
+    const earlier = unanswered.current;
+    if (!earlier) return true;
+    const result = await undoUploadAction(earlier.ref).catch(() => ({ ok: false as const, message: "" }));
+    if (result.ok) unanswered.current = null;
+    return result.ok;
+  }
 
   async function choose(file: File | undefined) {
     if (!file) return;
     setError(null);
+    const before = status;
     setStatus({ kind: "reading" });
     try {
       const image = await decodeImage(file);
@@ -75,11 +103,13 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
       setType(null);
       setColor(null);
       setHasName(false);
-      clientRef.current = newClientRef();
       setStatus({ kind: "ready" });
+      // A different photo: an earlier try that never got an answer is taken back (best effort).
+      void settleUnanswered();
       setAnnouncement("Photo ready. Move the square over the item, then pick its type and color.");
     } catch (problem) {
-      setStatus(picked ? { kind: "ready" } : { kind: "empty" });
+      // Back to where things were, *Undo* bar and all.
+      setStatus(before.kind === "reading" ? (picked ? { kind: "ready" } : { kind: "empty" }) : before);
       setError(
         problem instanceof UnreadablePhotoError
           ? "This photo's format can't be read in this browser. Try another photo, or a screenshot of it."
@@ -93,14 +123,28 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
     setError(null);
     setStatus({ kind: "saving", progress: 0 });
     try {
+      const earlier = unanswered.current;
+      let ref: string;
+      if (earlier && earlier.picked === picked && sameBox(earlier.box, box)) {
+        ref = earlier.ref;
+      } else {
+        if (!(await settleUnanswered())) {
+          setError("Couldn't check on the earlier try. Check the connection and try again.");
+          setStatus({ kind: "ready" });
+          return;
+        }
+        ref = newClientRef();
+      }
       const images = await uploadImages(picked.image, boxRect(box));
-      clientRef.current ??= newClientRef();
-      const result = await uploadItem({ ...images, type, color, hasName, clientRef: clientRef.current }, (progress) => setStatus({ kind: "saving", progress }));
+      const result = await uploadItem({ ...images, type, color, hasName, clientRef: ref }, (progress) => setStatus({ kind: "saving", progress }));
       if (!result.ok) {
+        // A refusal saved nothing; a lost answer might have.
+        unanswered.current = result.retry ? { ref, picked, box } : null;
         setError(result.message);
         setStatus({ kind: "ready" });
         return;
       }
+      unanswered.current = null;
       setStatus({ kind: "added", itemId: result.id });
       setAnnouncement("Added to the grid.");
     } catch {
@@ -110,14 +154,14 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
   }
 
   async function undo() {
-    if (status.kind !== "added") return;
+    if (status.kind !== "added" || undoing) return;
+    setUndoing(true);
     const result = await undoAddAction(status.itemId).catch(() => ({ ok: false as const, message: "Couldn't reach the lost and found. Try again." }));
+    setUndoing(false);
     if (!result.ok) {
       setError(result.message);
       return;
     }
-    // A fresh reference, so adding it again (after a fix) makes a new item.
-    clientRef.current = newClientRef();
     setStatus({ kind: "undone" });
     setAnnouncement("Taken back off the list. Fix it and add it again, or pick another photo.");
   }
@@ -157,7 +201,7 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
 
       {picked && box ? (
         <>
-          <div className="-mx-4 h-[clamp(240px,62vw,440px)] bg-[#2A2E35] sm:mx-0 sm:mt-3 sm:rounded-2xl">
+          <div className="-mx-4 h-[clamp(280px,min(100vw,60dvh),520px)] bg-[#2A2E35] sm:mx-0 sm:mt-3 sm:rounded-2xl">
             <CropArea image={picked.image} box={box} onChange={(next) => !saving && !added && setBox(next)} label="The chosen photo" />
           </div>
           <div className="-mx-4 flex min-h-11 items-center justify-between gap-2 border-b border-line bg-white py-1 pr-1.5 pl-4 sm:mx-0">
@@ -209,11 +253,16 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
         >
           <span className="flex-1 text-sm font-semibold">{added ? "Added to the grid" : "Taken back off the list"}</span>
           {added && (
-            <button type="button" onClick={() => void undo()} className="h-11 cursor-pointer rounded-[10px] px-3 text-[15px] font-bold text-[#9DB4FF]">
-              Undo
+            <button
+              type="button"
+              onClick={() => void undo()}
+              aria-disabled={undoing}
+              className="h-11 cursor-pointer rounded-[10px] px-3 text-[15px] font-bold text-[#9DB4FF] aria-disabled:cursor-wait aria-disabled:opacity-60"
+            >
+              {undoing ? "Undoing…" : "Undo"}
             </button>
           )}
-          <button type="button" onClick={() => input.current?.click()} className="h-11 cursor-pointer rounded-[10px] bg-white px-3 text-[15px] font-bold text-ink">
+          <button type="button" data-another onClick={() => input.current?.click()} className="h-11 cursor-pointer rounded-[10px] bg-white px-3 text-[15px] font-bold text-ink">
             Add another
           </button>
         </div>

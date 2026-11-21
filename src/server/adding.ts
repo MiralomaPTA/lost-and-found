@@ -1,7 +1,7 @@
 import { logActivity } from "@/server/activity";
 import type { Deps } from "@/server/deps";
 import { ConflictError } from "@/server/docs";
-import { addItem, addedWithRef, changeItems, CLIENT_REF, loadItems, type Item } from "@/server/items";
+import { addItem, addedWithRef, changeItems, changeTags, CLIENT_REF, loadItems, type Item, type ItemsFile } from "@/server/items";
 import { cleanJpeg } from "@/server/jpeg";
 import { newPhotoNames, photoKey } from "@/server/photos";
 import type { Settings } from "@/server/settings";
@@ -34,6 +34,8 @@ export interface Adder {
   isAdmin: boolean;
 }
 
+const BUSY = "Lots of changes are happening at once. Try again.";
+
 export type AddResult = { ok: true; item: Item; existing: boolean } | { ok: false; reason: "bad-request" | "busy"; message: string };
 
 function checkImage(bytes: Uint8Array, maxSide: number, maxBytes: number) {
@@ -51,6 +53,16 @@ export function uploadProblem(upload: Upload, settings: Settings): string | null
   return null;
 }
 
+/**
+ * A retry of an upload that already made its item (its answer may have been
+ * lost on the way back). The tags in this try win: the person may have fixed
+ * them before retrying. Changes `file` in place; says whether it changed.
+ */
+function retagRetry(file: ItemsFile, existing: Item, adder: Adder, upload: Upload, now: Date): { item: Item; retagged: boolean } {
+  const outcome = changeTags(file, { itemId: existing.id, phoneId: adder.phoneId, tags: { type: upload.type, color: upload.color, has_name: upload.hasName } }, now);
+  return outcome.ok && outcome.changed ? { item: outcome.item, retagged: true } : { item: existing, retagged: false };
+}
+
 export async function addUploadedItem(deps: Deps, settings: Settings, adder: Adder, upload: Upload): Promise<AddResult> {
   const problem = uploadProblem(upload, settings);
   if (problem) return { ok: false, reason: "bad-request", message: problem };
@@ -58,9 +70,24 @@ export async function addUploadedItem(deps: Deps, settings: Settings, adder: Add
   const thumb = checkImage(upload.thumb, THUMB_MAX_SIDE, THUMB_MAX_BYTES);
   if (!photo || !thumb) return { ok: false, reason: "bad-request", message: "That photo couldn't be saved. Take it again." };
 
-  // A retry of an upload that already went through: hand back the item it made.
-  const already = addedWithRef(await loadItems(deps, { fresh: true }), adder.phoneId, upload.clientRef);
-  if (already) return { ok: true, item: already, existing: true };
+  try {
+    // A retry of an upload that already went through: hand back its item, with this try's tags.
+    if (addedWithRef(await loadItems(deps, { fresh: true }), adder.phoneId, upload.clientRef)) {
+      const retried = await changeItems(deps, (file) => {
+        const existing = addedWithRef(file, adder.phoneId, upload.clientRef);
+        if (!existing) return { result: null };
+        const outcome = retagRetry(file, existing, adder, upload, deps.now());
+        return outcome.retagged ? { value: file, result: outcome } : { result: outcome };
+      });
+      if (retried) {
+        if (retried.retagged) await logActivity(deps, { actor: adder.phoneId, as_admin: adder.isAdmin, action: "tags_changed", item_id: retried.item.id });
+        return { ok: true, item: retried.item, existing: true };
+      }
+    }
+  } catch (error) {
+    if (error instanceof ConflictError) return { ok: false, reason: "busy", message: BUSY };
+    throw error;
+  }
 
   const names = newPhotoNames("jpg");
   const stored: string[] = [];
@@ -77,23 +104,42 @@ export async function addUploadedItem(deps: Deps, settings: Settings, adder: Add
     }
     const outcome = await changeItems(deps, (file) => {
       const existing = addedWithRef(file, adder.phoneId, upload.clientRef);
-      if (existing) return { result: { item: existing, existing: true } };
+      if (existing) {
+        const retried = retagRetry(file, existing, adder, upload, deps.now());
+        return retried.retagged ? { value: file, result: retried } : { result: retried };
+      }
       const item = addItem(
         file,
         { type: upload.type, color: upload.color, has_name: upload.hasName, ...names, phoneId: adder.phoneId, name: adder.name, clientRef: upload.clientRef },
         deps.now(),
       );
-      return { value: file, result: { item, existing: false } };
+      return { value: file, result: { item, retagged: false } };
     });
-    if (outcome.existing) {
-      await removePhotos();
-    } else {
+    // The item found may be this very request's: a write that went through
+    // but whose answer was lost, then retried by the storage client and
+    // refused as out of date. Only an item with other photos is someone
+    // else's (an earlier try of the same upload).
+    const ours = outcome.item.photo === names.photo;
+    if (ours) {
       await logActivity(deps, { actor: adder.phoneId, as_admin: adder.isAdmin, action: "added", item_id: outcome.item.id });
+    } else {
+      await removePhotos();
+      if (outcome.retagged) await logActivity(deps, { actor: adder.phoneId, as_admin: adder.isAdmin, action: "tags_changed", item_id: outcome.item.id });
     }
-    return { ok: true, ...outcome };
+    return { ok: true, item: outcome.item, existing: !ours };
   } catch (error) {
-    await removePhotos();
-    if (error instanceof ConflictError) return { ok: false, reason: "busy", message: "Lots of changes are happening at once. Try again." };
+    if (error instanceof ConflictError) {
+      // Every attempt was refused, so nothing points at these photos.
+      await removePhotos();
+      return { ok: false, reason: "busy", message: BUSY };
+    }
+    // Anything else leaves it unclear whether items.json took the write.
+    // Keep the photos if an item uses them; if that can't be checked either,
+    // leave them (an unused photo costs little; a missing one breaks an item).
+    const used = await loadItems(deps, { fresh: true })
+      .then((file) => file.items.some((item) => item.photo === names.photo))
+      .catch(() => true);
+    if (!used) await removePhotos();
     throw error;
   }
 }

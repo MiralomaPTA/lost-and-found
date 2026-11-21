@@ -44,13 +44,26 @@ export function sizeOf(source: Source): { width: number; height: number } {
   return { width: source.width, height: source.height };
 }
 
-/** A canvas holding `region` of `source` at full resolution (the frozen frame in bulk add). */
-export function copyRegion(source: CanvasImageSource, region: Rect): HTMLCanvasElement {
+/**
+ * A canvas holding `region` of `source` (the frozen frame in bulk add), at
+ * most `maxSide` across: more than the 1600 px photo needs, and small
+ * enough that iOS's limit on canvas memory isn't reached over a long run.
+ */
+export function copyRegion(source: CanvasImageSource, region: Rect, maxSide = 2048): HTMLCanvasElement {
+  const scale = Math.min(1, maxSide / Math.max(region.w, region.h));
   const canvas = document.createElement("canvas");
-  canvas.width = region.w;
-  canvas.height = region.h;
-  canvas.getContext("2d")!.drawImage(source, region.x, region.y, region.w, region.h, 0, 0, region.w, region.h);
+  canvas.width = Math.round(region.w * scale);
+  canvas.height = Math.round(region.h * scale);
+  const context = canvas.getContext("2d")!;
+  context.imageSmoothingQuality = "high";
+  context.drawImage(source, region.x, region.y, region.w, region.h, 0, 0, canvas.width, canvas.height);
   return canvas;
+}
+
+/** Frees a canvas's memory now rather than whenever it's collected (iOS counts it until then). */
+export function releaseCanvas(canvas: HTMLCanvasElement): void {
+  canvas.width = 0;
+  canvas.height = 0;
 }
 
 /** Where the backdrop trim would crop `region` of `source`, in `source`'s pixels, or null. */

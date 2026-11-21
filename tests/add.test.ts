@@ -20,11 +20,13 @@ vi.mock("next/cache", () => ({ refresh: () => {} }));
 vi.mock("next/server", () => ({ after: (task: () => unknown) => void Promise.resolve().then(task) }));
 vi.mock("@/server/deps", () => ({ getDeps: async () => (h.deps.current as { deps: unknown }).deps }));
 
-import { changeTagsAction, undoAddAction } from "@/app/actions/items";
+import { changeTagsAction, undoAddAction, undoUploadAction } from "@/app/actions/items";
 import { POST } from "@/app/api/items/route";
 import { addUploadedItem, type Upload } from "@/server/adding";
 import { CODE_COOKIE, FRESH_COOKIE, PHONE_COOKIE } from "@/server/cookies";
-import { ADDER_UNDO_MS, changeTags, claimItem, emptyItemsFile, loadItems, undoAdd } from "@/server/items";
+import { ADDER_UNDO_MS, changeTags, claimItem, emptyItemsFile, ITEMS_KEY, loadItems, undoAdd } from "@/server/items";
+import { memoryObjectStore } from "@/server/storage/memory";
+import type { ObjectStore } from "@/server/storage/types";
 import { schoolCodeProof, setDeviceName } from "@/server/phones";
 import { changeSchoolCode, loadSettings, type Settings } from "@/server/settings";
 import { fakeJpeg, PHONE_A, PHONE_B, testDeps } from "./helpers";
@@ -94,6 +96,60 @@ describe("saving an upload", () => {
     await addUploadedItem(t.deps, settings, adder, upload());
     const second = await addUploadedItem(t.deps, settings, adder, upload({ clientRef: "e".repeat(32), type: "Hoodie" }));
     expect(second).toMatchObject({ ok: true, item: { id: "L-0002", type: "Hoodie" } });
+  });
+
+  it("brings an earlier try's item up to date with the tags of a retry", async () => {
+    await addUploadedItem(t.deps, settings, adder, upload());
+    const retry = await addUploadedItem(t.deps, settings, adder, upload({ type: "Hoodie", hasName: false }));
+    expect(retry).toMatchObject({ ok: true, existing: true, item: { id: "L-0001", type: "Hoodie", has_name: false } });
+    expect((await loadItems(t.deps, { fresh: true })).items).toHaveLength(1);
+  });
+
+  /**
+   * A bucket whose first conditional write to items.json goes through but
+   * answers as if it hadn't: a refusal (the storage client retried a write
+   * whose answer was lost, and the retry was out of date) or an error.
+   */
+  function commitsThenFails(inner: ObjectStore, mode: "conflict" | "throw"): ObjectStore {
+    let armed = true;
+    return {
+      ...inner,
+      async put(key, body, options) {
+        const result = await inner.put(key, body, options);
+        if (armed && key === ITEMS_KEY && options?.condition && result.ok) {
+          armed = false;
+          if (mode === "throw") throw new Error("socket hang up");
+          return { ok: false, reason: "conflict" };
+        }
+        return result;
+      },
+    };
+  }
+
+  it("keeps the photos of an item whose write went through but answered as refused", async () => {
+    const store = commitsThenFails(memoryObjectStore(), "conflict");
+    const s2 = testDeps({ store });
+    const fresh = await changeSchoolCode(s2.deps, "otters");
+    const result = await addUploadedItem(s2.deps, fresh.ok ? fresh.settings : settings, adder, upload());
+    expect(result).toMatchObject({ ok: true, existing: false, item: { id: "L-0001" } });
+    const item = (await loadItems(s2.deps, { fresh: true })).items[0];
+    expect(await store.get(`photos/${item.photo}`)).not.toBeNull();
+    expect(await store.get(`photos/${item.thumb}`)).not.toBeNull();
+    const logged = await Promise.all((await store.list("activity/")).map(async (key) => JSON.parse(new TextDecoder().decode((await store.get(key))!.body)).action));
+    expect(logged).toContain("added");
+  });
+
+  it("keeps the photos of an item whose write went through but answered with an error, so a retry finds them", async () => {
+    const store = commitsThenFails(memoryObjectStore(), "throw");
+    const s2 = testDeps({ store });
+    const fresh = await changeSchoolCode(s2.deps, "otters");
+    const current = fresh.ok ? fresh.settings : settings;
+    await expect(addUploadedItem(s2.deps, current, adder, upload())).rejects.toThrow(/socket hang up/);
+    const retry = await addUploadedItem(s2.deps, current, adder, upload());
+    expect(retry).toMatchObject({ ok: true, existing: true, item: { id: "L-0001" } });
+    if (!retry.ok) return;
+    expect(await store.get(`photos/${retry.item.photo}`)).not.toBeNull();
+    expect(await store.list("photos/")).toHaveLength(2);
   });
 
   it.each<[string, Partial<Upload>]>([
@@ -177,6 +233,21 @@ describe("the adder's undo and fixing tags", () => {
     expect(await undoAddAction("L-0001")).toEqual({ ok: true });
     expect((await loadItems(t.deps, { fresh: true })).items[0].status).toBe("removed");
   });
+
+  it("takes back an upload by its reference, whether or not it made an item", async () => {
+    await addUploadedItem(t.deps, settings, adder, upload());
+    // Another phone's reference does nothing to this phone's item.
+    await asPhone(PHONE_B);
+    expect(await undoUploadAction(REF)).toEqual({ ok: true });
+    expect((await loadItems(t.deps, { fresh: true })).items[0].status).toBe("available");
+    await asPhone(PHONE_A);
+    expect(await undoUploadAction(REF)).toEqual({ ok: true });
+    expect((await loadItems(t.deps, { fresh: true })).items[0]).toMatchObject({ status: "removed", removed_reason: "add undone" });
+    // Again, or for an upload that never arrived: nothing to do.
+    expect(await undoUploadAction(REF)).toEqual({ ok: true });
+    expect(await undoUploadAction("e".repeat(32))).toEqual({ ok: true });
+    expect(await undoUploadAction("not a ref")).toEqual({ ok: true });
+  });
 });
 
 describe("POST /api/items", () => {
@@ -212,11 +283,34 @@ describe("POST /api/items", () => {
   it("refuses other sites, phones without the code, and phones without a name", async () => {
     await asPhone(PHONE_A);
     expect((await post(fields(), { origin: "https://evil.example", "x-forwarded-host": "localhost:3000" })).status).toBe(403);
+    expect((await post(fields(), { origin: "http://localhost:3000", "x-forwarded-host": "localhost:3000", "sec-fetch-site": "cross-site" })).status).toBe(403);
     expect((await post(fields(), { "x-forwarded-host": "localhost:3000" })).status).toBe(403);
     expect((await post(fields())).status).toBe(409);
     h.jar.clear();
     expect((await post(fields())).status).toBe(401);
     expect((await loadItems(t.deps, { fresh: true })).items).toEqual([]);
+  });
+
+  it("refuses a body that's too big, even without a Content-Length", async () => {
+    await setDeviceName(t.deps, PHONE_A, "Volunteer");
+    await asPhone(PHONE_A);
+    const chunk = new Uint8Array(1_000_000);
+    let sent = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent++ < 6) controller.enqueue(chunk);
+        else controller.close();
+      },
+    });
+    const request = new Request("http://localhost:3000/api/items", {
+      method: "POST",
+      body,
+      duplex: "half",
+      headers: { origin: "http://localhost:3000", "x-forwarded-host": "localhost:3000", "content-type": "multipart/form-data; boundary=x" },
+    } as RequestInit);
+    const response = await POST(request as never);
+    expect(response.status).toBe(413);
+    expect(sent).toBeLessThan(7);
   });
 
   it("answers a bad upload with a message", async () => {

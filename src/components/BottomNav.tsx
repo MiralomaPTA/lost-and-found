@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { UploadsBar } from "@/components/add/UploadsBar";
 import { useOptionalClaims } from "@/components/claims/ClaimsProvider";
 
 /** The bottom bar (spec section 1): *All items*, *Add* and *My items*, with a count of this phone's open claims. */
@@ -16,6 +17,7 @@ export function BottomNav({ openClaims }: { openClaims: number }) {
       data-bottom-nav
       className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white pb-[env(safe-area-inset-bottom)]"
     >
+      <UploadsBar />
       <div className="mx-auto grid max-w-md grid-cols-3">
         <Tab href="/" current={pathname === "/"} label="All items">
           <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">

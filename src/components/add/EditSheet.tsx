@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { TagPicker, type ColorChoice } from "@/components/add/TagPicker";
-import type { QueueEntry, QueueTags } from "@/components/add/useUploadQueue";
+import type { QueueEntry, QueueTags } from "@/lib/upload-queue";
 
 /**
  * Bulk add's strip, tapped (spec: *Fixing a mistake*): change an item's
@@ -65,7 +65,7 @@ export function EditSheet({
                 {entry.tags.type} · {entry.tags.color}
               </h2>
               <span className="text-[13px] text-muted">
-                {entry.state === "saved" ? "On the grid" : entry.state === "failed" ? "Didn't upload" : "Uploading…"}
+                {entry.state === "saved" ? "On the grid" : entry.state === "failed" ? (entry.retryable ? "Didn't upload" : "Not saved") : "Uploading…"}
               </span>
             </div>
           </div>
@@ -85,7 +85,7 @@ export function EditSheet({
             onHasName={(hasName) => setTags({ ...tags, hasName })}
           />
           <div className="flex flex-col gap-2">
-            {entry.state === "failed" && (
+            {entry.state === "failed" && entry.retryable && (
               <button type="button" className="btn-primary" onClick={onRetry}>
                 Retry the upload
               </button>

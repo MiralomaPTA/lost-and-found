@@ -164,7 +164,7 @@ Each item gets three tags and nothing else: type, color, and whether it has a na
   - If the trim can't find a clear edge (a busy background, or an item the same color as the backdrop), the square is kept. A *Full photo* button under the frozen photo undoes a bad crop.
   - A trimmed photo isn't always square, so cards show the whole photo centered on a plain background.
 - **Fixing a mistake.** A strip along the top shows the items saved since bulk add was opened. Tapping one opens it to change its tags, or *Undo* to take it off the list. Once the person leaves bulk add, anyone can still fix its tags from the item page, but only an admin can remove it. (As a backstop for a screen left open, the app accepts the adder's *Undo* for 3 hours after adding.)
-- **Saving doesn't wait.** Each item uploads in the background while the person carries on, and the strip shows each upload's progress. A failed upload stays in the strip with *Retry*, and the page warns before it is closed with uploads still waiting.
+- **Saving doesn't wait.** Each item uploads in the background while the person carries on, and the strip shows each upload's progress. A failed upload stays in the strip with *Retry*, and the page warns before it is closed with uploads still waiting. Leaving bulk add doesn't stop them: they finish in the background, a line above the bottom bar shows them, and a failed one waits in the strip for the next visit to bulk add.
 - **Without the live camera** (permission refused, or an older browser), bulk add falls back to the phone's own camera app, with the same tags after each photo.
 
 **Add one from a photo.**

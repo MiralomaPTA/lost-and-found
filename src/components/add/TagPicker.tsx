@@ -26,6 +26,7 @@ export function TagPicker({
   colorWaitsFor = null,
   typeNote,
   colorNote,
+  typesInOneRow = false,
 }: {
   types: string[];
   colors: ColorChoice[];
@@ -40,6 +41,8 @@ export function TagPicker({
   colorWaitsFor?: string | null;
   typeNote?: ReactNode;
   colorNote?: ReactNode;
+  /** One row that scrolls sideways, so bulk add fits a small phone (spec open question 12). */
+  typesInOneRow?: boolean;
 }) {
   const id = useId();
   return (
@@ -51,7 +54,7 @@ export function TagPicker({
           </span>
           {typeNote && <span className="text-xs text-muted">{typeNote}</span>}
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className={`flex gap-1.5 ${typesInOneRow ? "-mx-4 overflow-x-auto px-4 [scrollbar-width:none]" : "flex-wrap"}`}>
           {types.map((name) => {
             const on = type === name;
             return (
@@ -60,7 +63,7 @@ export function TagPicker({
                 type="button"
                 aria-pressed={on}
                 onClick={() => onType(name)}
-                className={`h-[38px] cursor-pointer rounded-[10px] border px-3 text-sm font-semibold whitespace-nowrap ${on ? "border-ink bg-ink text-white" : "border-[#D5D8DE] bg-white text-ink hover:bg-page"}`}
+                className={`h-[38px] flex-none cursor-pointer rounded-[10px] border px-3 text-sm font-semibold whitespace-nowrap ${on ? "border-ink bg-ink text-white" : "border-[#D5D8DE] bg-white text-ink hover:bg-page"}`}
               >
                 {name}
               </button>

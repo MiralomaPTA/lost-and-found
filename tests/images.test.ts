@@ -2,32 +2,52 @@ import { describe, expect, it } from "vitest";
 import { clampBox, initialBox, minBoxSize, moveBox, resizeFromCorner, scaleBox } from "@/lib/image/crop-box";
 import { findTrim, scaleRect } from "@/lib/image/trim";
 import { cleanJpeg } from "@/server/jpeg";
-import { fakeJpeg } from "./helpers";
+import { ascii, fakeJpeg, jpegSegment } from "./helpers";
 
 const text = (bytes: Uint8Array) => new TextDecoder("latin1").decode(bytes);
 
 describe("cleaning a JPEG", () => {
-  it("reads the size and drops EXIF and comments, keeping the picture", () => {
+  it("reads the size and drops EXIF, comments and the JFIF header, keeping the picture", () => {
     const input = fakeJpeg(1600, 1200, { exif: true });
     const clean = cleanJpeg(input)!;
     expect(clean).toMatchObject({ width: 1600, height: 1200 });
     expect(text(input)).toMatch(/GPS/);
+    expect(text(clean.bytes)).not.toMatch(/GPS|Exif|comment|JFIF/);
+    // The scan, escaped bytes and restart marker included, and the end marker are untouched.
+    expect([...clean.bytes.slice(-10)]).toEqual([0x12, 0x34, 0xff, 0x00, 0x56, 0xff, 0xd0, 0x78, 0xff, 0xd9]);
+  });
+
+  it("drops metadata between the scans of a progressive JPEG, and anything after its end", () => {
+    const input = fakeJpeg(400, 300, {
+      progressive: true,
+      betweenScans: [jpegSegment(0xe1, [...ascii("Exif"), 0, 0, ...ascii("GPS later")]), jpegSegment(0xfe, ascii("late comment")), jpegSegment(0xc4, [1, ...new Array(16).fill(0)])],
+      trailing: [0xff, 0xd8, ...jpegSegment(0xe1, ascii("Exif GPS in an appended image"))],
+    });
+    const clean = cleanJpeg(input)!;
+    expect(clean).toMatchObject({ width: 400, height: 300 });
     expect(text(clean.bytes)).not.toMatch(/GPS|Exif|comment/);
-    expect(text(clean.bytes)).toMatch(/JFIF/);
-    // Everything from the scan on is untouched, end marker included.
-    expect([...clean.bytes.slice(-7)]).toEqual([0x12, 0x34, 0xff, 0x00, 0x56, 0xff, 0xd9]);
-    expect(clean.bytes.length).toBeLessThan(input.length);
+    // Both scans and the table between them stay; the file ends at its end marker.
+    expect(text(clean.bytes).split(String.fromCharCode(0xff, 0xda)).length - 1).toBe(2);
+    expect([...clean.bytes.slice(-2)]).toEqual([0xff, 0xd9]);
   });
 
-  it("reads progressive JPEGs too", () => {
-    expect(cleanJpeg(fakeJpeg(400, 300, { progressive: true }))).toMatchObject({ width: 400, height: 300 });
+  it("keeps a standard Adobe color segment, and nothing larger in its place", () => {
+    const adobe = jpegSegment(0xee, [...ascii("Adobe"), 0, 100, 0, 0, 0, 0, 1]);
+    const withAdobe = new Uint8Array([0xff, 0xd8, ...adobe, ...fakeJpeg(100, 100).slice(2)]);
+    expect(text(cleanJpeg(withAdobe)!.bytes)).toMatch(/Adobe/);
+    const big = jpegSegment(0xee, [...ascii("Adobe"), 0, 100, ...ascii("GPS hidden here")]);
+    expect(text(cleanJpeg(new Uint8Array([0xff, 0xd8, ...big, ...fakeJpeg(100, 100).slice(2)]))!.bytes)).not.toMatch(/GPS/);
   });
 
-  it("refuses what isn't a whole JPEG", () => {
+  it("refuses what isn't a whole JPEG a browser shows", () => {
     const good = fakeJpeg(100, 100);
+    expect(cleanJpeg(good)).not.toBeNull();
     expect(cleanJpeg(new TextEncoder().encode("<svg onload=alert(1)>"))).toBeNull();
     expect(cleanJpeg(good.slice(0, 40))).toBeNull();
     expect(cleanJpeg(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]))).toBeNull();
+    expect(cleanJpeg(fakeJpeg(100, 100, { noEnd: true }))).toBeNull();
+    expect(cleanJpeg(fakeJpeg(100, 100, { frameMarker: 0xc9 }))).toBeNull();
+    expect(cleanJpeg(fakeJpeg(100, 100, { twoFrames: true }))).toBeNull();
     const noSize = Uint8Array.from(good);
     noSize.set([0, 0, 0, 0], good.indexOf(0xc0) + 4);
     expect(cleanJpeg(noSize)).toBeNull();

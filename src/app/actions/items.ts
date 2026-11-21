@@ -3,7 +3,7 @@
 import { logActivity } from "@/server/activity";
 import { getDeps } from "@/server/deps";
 import { ConflictError } from "@/server/docs";
-import { changeItems, changeTags, ITEM_ID, undoAdd, type AdderUndo, type TagChange } from "@/server/items";
+import { addedWithRef, changeItems, changeTags, CLIENT_REF, ITEM_ID, undoAdd, type AdderUndo, type Item, type TagChange } from "@/server/items";
 import { getVisitor } from "@/server/session";
 import { activeColors, activeTypes } from "@/server/views";
 
@@ -53,6 +53,31 @@ export async function undoAddAction(itemId: unknown): Promise<ItemChangeResult> 
       return { ok: false, message: messages[outcome.reason] };
     }
     await logActivity(deps, { actor: visitor.phoneId, as_admin: visitor.isAdmin, action: "add_undone", item_id: itemId });
+    return { ok: true };
+  });
+}
+
+/**
+ * Takes back an upload whose answer never arrived (a timeout, a dropped
+ * connection): if it made an item, by its upload reference, that item comes
+ * off the list. If it didn't, there's nothing to do, and that's fine too.
+ */
+export async function undoUploadAction(clientRef: unknown): Promise<ItemChangeResult> {
+  const visitor = await visitorWithCode();
+  if (!visitor) return { ok: false, message: NO_CODE };
+  if (typeof clientRef !== "string" || !CLIENT_REF.test(clientRef)) return { ok: true };
+  const deps = await getDeps();
+  return orBusy(async () => {
+    const outcome = await changeItems<AdderUndo | { ok: true; item: null }>(deps, (file) => {
+      const item: Item | undefined = addedWithRef(file, visitor.phoneId, clientRef);
+      if (!item || item.status === "removed") return { result: { ok: true, item: null } };
+      const result = undoAdd(file, { itemId: item.id, phoneId: visitor.phoneId }, deps.now());
+      return result.ok ? { value: file, result } : { result };
+    });
+    if (!outcome.ok) {
+      return { ok: false, message: outcome.reason === "taken" ? "Someone has already claimed it, so it stays on the list." : `It's been on the list too long to undo here.` };
+    }
+    if (outcome.item) await logActivity(deps, { actor: visitor.phoneId, as_admin: visitor.isAdmin, action: "add_undone", item_id: outcome.item.id });
     return { ok: true };
   });
 }

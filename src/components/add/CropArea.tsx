@@ -132,7 +132,10 @@ export function CropArea({ image, box, onChange, label }: { image: ImageBitmap; 
           <span className="pointer-events-none absolute inset-y-0 left-2/3 w-px bg-white/45" />
           <span className="pointer-events-none absolute inset-x-0 top-1/3 h-px bg-white/45" />
           <span className="pointer-events-none absolute inset-x-0 top-2/3 h-px bg-white/45" />
-          <span data-handle aria-hidden="true" className="absolute right-[3px] bottom-[3px] h-[26px] w-[26px] cursor-nwse-resize rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.45)]" />
+          {/* A 44 px target around the 26 px dot, so a thumb can find it. */}
+          <span data-handle aria-hidden="true" className="absolute right-0 bottom-0 flex h-11 w-11 cursor-nwse-resize items-center justify-center">
+            <span className="pointer-events-none h-[26px] w-[26px] rounded-full bg-white shadow-[0_1px_4px_rgba(0,0,0,0.45)]" />
+          </span>
         </div>
       </div>
     </div>

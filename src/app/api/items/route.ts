@@ -35,24 +35,53 @@ function fromThisSite(request: NextRequest): boolean {
   }
 }
 
+/**
+ * The request body, or null once it passes `limit`. Counted as it arrives,
+ * so a body sent without a Content-Length (chunked) is capped too.
+ */
+async function readBody(request: NextRequest, limit: number): Promise<Uint8Array<ArrayBuffer> | null> {
+  const reader = request.body?.getReader();
+  if (!reader) return new Uint8Array();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.length;
+    if (total > limit) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return body;
+}
+
 async function bytesOf(value: FormDataEntryValue | null): Promise<Uint8Array | null> {
   return value instanceof Blob ? new Uint8Array(await value.arrayBuffer()) : null;
 }
 
 export async function POST(request: NextRequest) {
   if (!fromThisSite(request)) return answer(403, { ok: false, reason: "forbidden", message: "This can only be sent from the lost-and-found site." });
-  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY) {
-    return answer(413, { ok: false, reason: "too-big", message: "That photo is too big to upload. Take it again." });
-  }
+  const tooBig = () => answer(413, { ok: false, reason: "too-big", message: "That photo is too big to upload. Take it again." });
+  if (Number(request.headers.get("content-length") ?? 0) > MAX_BODY) return tooBig();
 
   const visitor = await getVisitor();
   if (!visitor.canBrowse || !visitor.phoneId) return answer(401, { ok: false, reason: "no-code", message: "Enter the school code first." });
   const name = visitor.device?.name;
   if (!name) return answer(409, { ok: false, reason: "need-name", message: "Give this phone a name first, on the Add page." });
 
+  const body = await readBody(request, MAX_BODY);
+  if (!body) return tooBig();
   let form: FormData;
   try {
-    form = await request.formData();
+    form = await new Response(body, { headers: { "content-type": request.headers.get("content-type") ?? "" } }).formData();
   } catch {
     return answer(400, { ok: false, reason: "bad-request", message: "That upload didn't come through. Try again." });
   }
