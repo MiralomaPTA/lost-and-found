@@ -69,7 +69,8 @@ async function changeList(kind: unknown, action: string, apply: (settings: Setti
     return { ok: true, message };
   } catch (error) {
     if (error instanceof ConflictError) return { ok: false, message: BUSY };
-    throw error;
+    console.error(`Couldn't save ${action}`, error);
+    return { ok: false, message: "Something went wrong. Reload the page and try again." };
   }
 }
 

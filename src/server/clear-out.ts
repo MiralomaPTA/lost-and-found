@@ -30,13 +30,16 @@ import type { Settings } from "@/server/settings";
 
 /**
  * What the clear-out dates count from: the last clear-out, or before the
- * first one, the day the oldest item on the list was added. A date before
- * that was before the lost and found had anything in it, so it's never
- * overdue.
+ * first one, the day the oldest item still in the bin (available or
+ * claimed) was added. A date before that was before the bin had anything in
+ * it, so it's never overdue; nor do removed items, or a test add someone
+ * undid, make one overdue.
  */
 export function countingFrom(file: ItemsFile): LastClearOut | null {
   if (file.last_clear_out) return file.last_clear_out;
-  const first = file.items.reduce<string | null>((oldest, item) => (!oldest || item.added_at < oldest ? item.added_at : oldest), null);
+  const first = file.items
+    .filter((item) => item.status === "available" || item.status === "claimed")
+    .reduce<string | null>((oldest, item) => (!oldest || item.added_at < oldest ? item.added_at : oldest), null);
   return first ? { date: pacificDate(first), done_at: first } : null;
 }
 
@@ -73,7 +76,11 @@ export interface ComingDate {
   next: boolean;
 }
 
-/** The clear-out dates still to do, for the next `months` months, plus any overdue one. */
+/**
+ * The clear-out dates still to do, for the next `months` months, plus the
+ * overdue one (of several past dates, only the latest: one clear-out covers
+ * them all), and a past date that was skipped, so its skip can be put back.
+ */
 export function comingDates(today: string, changes: readonly ClearOutChange[], file: ItemsFile, months = 6): ComingDate[] {
   const [year, month] = today.split("-").map(Number);
   const from = countingFrom(file);
@@ -88,8 +95,11 @@ export function comingDates(today: string, changes: readonly ClearOutChange[], f
     const date = change?.change === "skipped" ? null : change?.change === "moved" && change.moved_to ? change.moved_to : scheduled;
     const when = date ?? scheduled;
     if (through && when <= through) continue;
-    const overdue = date !== null && date < today && from !== null;
-    if (when < today && !overdue) continue;
+    // A past date only counts once the bin has had something in it.
+    const counts = from !== null;
+    const overdue = date !== null && date < today && counts;
+    if (overdue && date !== upcoming?.date) continue;
+    if (when < today && !overdue && !(change?.change === "skipped" && counts)) continue;
     rows.push({ scheduled, date, change: change?.change ?? null, byName: change?.by_name ?? null, overdue, next: date !== null && date === upcoming?.date });
   }
   return rows.sort((a, b) => (a.date ?? a.scheduled).localeCompare(b.date ?? b.scheduled));
@@ -102,7 +112,7 @@ export type DateChange = { ok: true } | { ok: false; error: string };
 
 const NOT_COMING = "That clear-out isn't coming up any more. Reload to see the dates.";
 
-/** Finds the row for `scheduled` among the coming dates, or says why it can't change. */
+/** The row for `scheduled` among the coming dates: only those can change. */
 function comingRow(settings: Settings, file: ItemsFile, scheduled: string, today: string): ComingDate | null {
   return comingDates(today, settings.clear_out_changes, file).find((row) => row.scheduled === scheduled) ?? null;
 }
@@ -122,6 +132,21 @@ export function moveClearOut(settings: Settings, file: ItemsFile, input: { sched
   settings.clear_out_changes =
     input.to === input.scheduled ? others : [...others, { date: input.scheduled, change: "moved", moved_to: input.to, note: null, by_name: input.byName }];
   return { ok: true };
+}
+
+/**
+ * The days *Move* offers for a row, and where the picker starts (the date
+ * it's due on now): from today on, within MOVE_DAYS of its second Friday,
+ * and after the last clear-out. Null when no day fits.
+ */
+export function moveRange(row: ComingDate, today: string, file: ItemsFile): { min: string; max: string; start: string } | null {
+  const offset = (days: number) => dayFromNumber(dayNumber(row.scheduled) + days);
+  const through = doneThrough(file.last_clear_out);
+  const min = [today, offset(-MOVE_DAYS), ...(through ? [dayFromNumber(dayNumber(through) + 1)] : [])].sort().at(-1)!;
+  const max = offset(MOVE_DAYS);
+  if (min > max) return null;
+  const now = row.date ?? row.scheduled;
+  return { min, max, start: now < min ? min : now > max ? max : now };
 }
 
 /** A YYYY-MM-DD calendar day that exists: "2026-02-30" would count as March 2, so it has to round-trip. */
@@ -216,7 +241,7 @@ export function closeList(file: ItemsFile, input: { date: string; adminId: strin
     delete archived.client_ref;
     return archived;
   });
-  const summary: ClearOutSummary = { date: input.date, done_at: at, done_by_name: input.adminName, donated, picked_up: pickedUp, removed };
+  const summary: ClearOutSummary = { date: input.date, done_at: at, done_by_name: input.adminName, donated, picked_up: pickedUp, removed, run: input.run };
   const archive: Archive = {
     version: 1,
     date: input.date,
@@ -296,15 +321,18 @@ export async function runClearOut(
       continue;
     }
 
-    await nameArchive(deps, closed.archive, run);
-    const photosLeft = (await deletePhotos(deps, closed.photos)) + (await sweepOrphanPhotos(deps).catch(() => 0));
+    // From here on it has happened, whatever stops the rest: log it now.
     await logActivity(deps, {
       actor: input.adminId,
       as_admin: true,
       action: "cleared_out",
       detail: { date: plan.date, donated: closed.summary.donated, picked_up: closed.summary.picked_up, removed: closed.summary.removed },
     });
-    return { ok: true, summary: closed.summary, photosLeft };
+    await nameArchive(deps, closed.archive, run);
+    // A deletion that fails is tried once more now, then by tidyBucket after later admin pages.
+    const failed = await deletePhotos(deps, await deletePhotos(deps, closed.photos));
+    const strays = await sweepOrphanPhotos(deps, new Set(failed)).catch(() => []);
+    return { ok: true, summary: closed.summary, photosLeft: failed.length + strays.length };
   }
   return { ok: false, reason: "busy" };
 }
@@ -326,27 +354,12 @@ async function nameArchive(deps: Deps, archive: Archive, run: string): Promise<v
   await deps.store.delete(pendingArchiveKey(run)).catch(() => undefined);
 }
 
-/**
- * Finishes a clear-out that stopped after resetting the list: names its
- * archive, and deletes the old photos the run didn't get to. The *Clear out*
- * tab runs this after it renders.
- */
-export async function finishClearOut(deps: Deps): Promise<void> {
-  const last = (await loadItems(deps)).last_clear_out;
-  if (!last?.run) return;
-  if (await deps.store.get(archiveKey(last.date))) return;
-  const pending = await deps.docs.read(pendingArchiveKey(last.run), archiveSchema);
-  if (!pending) return;
-  await nameArchive(deps, pending, last.run);
-  await sweepOrphanPhotos(deps);
-}
-
-/** Deletes photo files, a few at a time. Says how many couldn't be deleted. */
-async function deletePhotos(deps: Deps, names: readonly string[]): Promise<number> {
-  let failed = 0;
+/** Deletes photo files, a few at a time. Says which couldn't be deleted. */
+async function deletePhotos(deps: Deps, names: readonly string[]): Promise<string[]> {
+  const failed: string[] = [];
   await forEachLimited(names.filter(isPhotoName), 8, async (name) => {
     await deps.store.delete(photoKey(name)).catch(() => {
-      failed++;
+      failed.push(name);
     });
   });
   return failed;
@@ -354,24 +367,60 @@ async function deletePhotos(deps: Deps, names: readonly string[]): Promise<numbe
 
 /**
  * A photo uploaded within this long might belong to an add that's still on
- * its way: the photo is saved before the item is put on the list.
+ * its way: the photo is saved before the item is put on the list. The same
+ * goes for a pending archive: its run may still be going.
  */
 export const ORPHAN_MIN_AGE_MS = 60 * 60 * 1000;
 
 /**
  * Deletes photo files the list doesn't point at: ones an earlier deletion
- * missed (deletions are best effort). Says how many couldn't be deleted.
+ * missed (deletions are best effort), apart from `skip`. Says which
+ * couldn't be deleted.
  */
-export async function sweepOrphanPhotos(deps: Deps): Promise<number> {
+export async function sweepOrphanPhotos(deps: Deps, skip: ReadonlySet<string> = new Set()): Promise<string[]> {
   // List first, then read the list: a photo saved in between is either on the list by then or too new to touch.
   const listed = await deps.store.listObjects("photos/");
   const inUse = photosInUse(await loadItems(deps, { fresh: true }));
   const cutoff = deps.now().getTime() - ORPHAN_MIN_AGE_MS;
   const orphans = listed
     .map((object) => ({ name: object.key.slice("photos/".length), modified: object.modified }))
-    .filter(({ name, modified }) => isPhotoName(name) && !inUse.has(name) && modified.getTime() < cutoff)
+    .filter(({ name, modified }) => isPhotoName(name) && !inUse.has(name) && !skip.has(name) && modified.getTime() < cutoff)
     .map(({ name }) => name);
   return deletePhotos(deps, orphans);
+}
+
+/** How often admin pages tidy up after them, per server. */
+const TIDY_EVERY_MS = 10 * 60 * 1000;
+const lastTidy = new WeakMap<object, number>();
+
+/**
+ * Tidies up after clear-outs and *Undo*s; admin pages run it after they
+ * render, at most every ten minutes per server (the *Clear out* tab every
+ * time):
+ * - a finished run's archive that's still pending (the run stopped after
+ *   resetting the list) gets its date's name;
+ * - any other pending archive over an hour old (a run that failed before
+ *   resetting the list) is deleted;
+ * - photo files the list doesn't point at, over an hour old, are deleted:
+ *   ones a clear-out's deletions missed, or an *Undo*'s.
+ */
+export async function tidyBucket(deps: Deps, { force = false }: { force?: boolean } = {}): Promise<void> {
+  const now = deps.now().getTime();
+  if (!force && now - (lastTidy.get(deps.store) ?? -Infinity) < TIDY_EVERY_MS) return;
+  lastTidy.set(deps.store, now);
+  const file = await loadItems(deps, { fresh: true });
+  const finished = new Set([file.last_clear_out?.run, ...(file.clear_outs ?? []).map((c) => c.run)].filter(Boolean));
+  for (const { key, modified } of await deps.store.listObjects("archive/pending/")) {
+    const run = /^archive\/pending\/([0-9a-f]{16})\.json$/.exec(key)?.[1];
+    if (!run) continue;
+    if (finished.has(run)) {
+      const archive = await deps.docs.read(key, archiveSchema);
+      if (archive) await nameArchive(deps, archive, run);
+    } else if (now - modified.getTime() > ORPHAN_MIN_AGE_MS) {
+      await deps.store.delete(key);
+    }
+  }
+  await sweepOrphanPhotos(deps);
 }
 
 /** The clear-outs so far, newest first. */

@@ -87,19 +87,10 @@ export function daysUntil(today: string, date: string): number {
   return dayNumber(date) - dayNumber(today);
 }
 
-/** "today", "tomorrow", "in 4 days"; for a past date, "2 days ago". */
+/** "today", "tomorrow", "in 4 days", for a date still to come. */
 export function untilLabel(today: string, date: string): string {
   const days = daysUntil(today, date);
-  if (days === 0) return "today";
-  if (days === 1) return "tomorrow";
-  if (days === -1) return "yesterday";
-  return days > 0 ? `in ${days} days` : `${-days} days ago`;
-}
-
-/** Whether a YYYY-MM-DD day is its month's second Friday. */
-export function isSecondFriday(day: string): boolean {
-  const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(day);
-  return Boolean(match) && secondFriday(Number(match![1]), Number(match![2])) === day;
+  return days <= 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`;
 }
 
 /** The donation reminder shows on the grid in the last 7 days, the clear-out day included. */

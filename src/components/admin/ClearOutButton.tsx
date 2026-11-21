@@ -52,13 +52,16 @@ export function ClearOutButton({ confirmation }: { confirmation: ClearOutConfirm
       >
         Clear out
       </button>
-      <Sheet open={open} onClose={() => !busy && setOpen(false)} busy={busy} labelledBy="clear-out-title">
+      {/* It opens on Cancel, and a screen reader hears what it does and the warning first. */}
+      <Sheet open={open} onClose={() => !busy && setOpen(false)} busy={busy} labelledBy="clear-out-title" describedBy="clear-out-sentence clear-out-warning">
         <div className="flex flex-col gap-4 px-4 pt-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]">
           <div className="flex flex-col gap-1.5">
             <h2 id="clear-out-title" className="text-xl font-extrabold">
               {confirmation.title}
             </h2>
-            <p className="text-[15px] leading-snug text-body">{confirmation.sentence}</p>
+            <p id="clear-out-sentence" className="text-[15px] leading-snug text-body">
+              {confirmation.sentence}
+            </p>
           </div>
           {confirmation.rows.length > 0 && (
             <dl className="flex flex-col divide-y divide-rule rounded-xl border border-line">
@@ -70,7 +73,9 @@ export function ClearOutButton({ confirmation }: { confirmation: ClearOutConfirm
               ))}
             </dl>
           )}
-          <p className="notice bg-bad-soft text-bad">Only do this after the bin has been emptied. There&apos;s no undo.</p>
+          <p id="clear-out-warning" className="notice bg-bad-soft text-bad">
+            Only do this after the bin has been emptied. There&apos;s no undo.
+          </p>
           {problem && (
             <p role="alert" className="text-sm font-semibold text-bad">
               {problem}
@@ -85,7 +90,13 @@ export function ClearOutButton({ confirmation }: { confirmation: ClearOutConfirm
             >
               {busy ? "Clearing out…" : confirmation.button}
             </button>
-            <button type="button" aria-disabled={busy} onClick={() => !busy && setOpen(false)} className="btn-secondary aria-disabled:cursor-wait aria-disabled:opacity-50">
+            <button
+              type="button"
+              data-autofocus
+              aria-disabled={busy}
+              onClick={() => !busy && setOpen(false)}
+              className="btn-secondary aria-disabled:cursor-wait aria-disabled:opacity-50"
+            >
               Cancel
             </button>
           </div>

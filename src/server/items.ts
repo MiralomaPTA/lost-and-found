@@ -105,6 +105,8 @@ export const clearOutSummarySchema = z.looseObject({
   donated: z.number().int().nonnegative(),
   picked_up: z.number().int().nonnegative(),
   removed: z.number().int().nonnegative(),
+  /** The run that did it: how a pending archive is known to be a finished clear-out's. */
+  run: z.string().regex(CLEAR_OUT_RUN).optional(),
 });
 
 export const itemsFileSchema = z.looseObject({

@@ -8,7 +8,13 @@ import { NO_STATE } from "@/lib/form-state";
 /** Where the bin is: it finishes "Pick it up from the lost-and-found bin …", which families see after claiming. */
 export function BinDescriptionForm({ current }: { current: string }) {
   const [state, run, pending] = useActionState(saveBinDescriptionAction, NO_STATE);
+  // Controlled, so saving doesn't reset or remount it (and keyboard focus stays put).
   const [typed, setTyped] = useState(current);
+  const [saved, setSaved] = useState(current);
+  if (current !== saved) {
+    setSaved(current);
+    setTyped(current);
+  }
   const preview = typed.trim().replace(/[.\s]+$/, "") || "…";
   return (
     <form action={run} className="flex flex-col gap-2.5">
@@ -17,13 +23,12 @@ export function BinDescriptionForm({ current }: { current: string }) {
       </label>
       <div className="flex gap-2">
         <input
-          key={`${current}-${state.attempt ?? 0}`}
           id="bin"
           name="bin"
           type="text"
           required
           maxLength={120}
-          defaultValue={state.error ? state.values?.bin : current}
+          value={typed}
           onChange={(event) => setTyped(event.target.value)}
           placeholder="by the main office"
           className="field min-w-0 flex-1"

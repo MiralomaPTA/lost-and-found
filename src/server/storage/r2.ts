@@ -48,7 +48,8 @@ export function r2ObjectStore(settings: R2Settings): ObjectStore {
     let ContinuationToken: string | undefined;
     do {
       const page = await client.send(new ListObjectsV2Command({ Bucket, Prefix: prefix || undefined, ContinuationToken }));
-      for (const item of page.Contents ?? []) if (item.Key) objects.push({ key: item.Key, modified: item.LastModified ?? new Date(0) });
+      // With no date given, count it as new: sweeps only delete what's old.
+      for (const item of page.Contents ?? []) if (item.Key) objects.push({ key: item.Key, modified: item.LastModified ?? new Date() });
       ContinuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
     } while (ContinuationToken);
     return objects;

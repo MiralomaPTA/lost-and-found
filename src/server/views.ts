@@ -40,6 +40,20 @@ export function activeColors(settings: Settings): { name: string; swatch: Swatch
     .map((c) => ({ name: c.name, swatch: swatchFor(settings, c.name) }));
 }
 
+/**
+ * The choices for *Fix tags* on one item: the types and colors on offer,
+ * plus the item's own if an admin has since hidden it, so the item keeps it
+ * while its other tags change.
+ */
+export function tagChoices(settings: Settings, current: { type: string; color: string }): { types: string[]; colors: { name: string; swatch: Swatch }[] } {
+  const types = activeTypes(settings);
+  const colors = activeColors(settings);
+  return {
+    types: types.includes(current.type) ? types : [...types, current.type],
+    colors: colors.some((c) => c.name === current.color) ? colors : [...colors, { name: current.color, swatch: swatchFor(settings, current.color) }],
+  };
+}
+
 /** The grid's list: available items, filtered, newest or oldest first. */
 export function gridItems(file: ItemsFile, query: GridQuery, now: Date): Item[] {
   const list = file.items.filter(

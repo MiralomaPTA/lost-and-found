@@ -18,9 +18,8 @@ export interface ComingDateRow {
   flagged: boolean;
   skipped: boolean;
   changed: boolean;
-  /** The range *Move* takes, YYYY-MM-DD. */
-  min: string;
-  max: string;
+  /** The days *Move* takes, YYYY-MM-DD, and where its picker starts; null when no day fits. */
+  move: { min: string; max: string; start: string } | null;
 }
 
 const OFFLINE = "Couldn't reach the lost and found. Try again.";
@@ -85,19 +84,21 @@ export function ComingDates({ rows }: { rows: ComingDateRow[] }) {
                 </button>
               ) : (
                 <>
-                  <button
-                    type="button"
-                    aria-expanded={moving === row.scheduled}
-                    aria-controls={`move-${row.scheduled}`}
-                    aria-label={`Move the ${row.label} clear-out`}
-                    className={ROW_BUTTON}
-                    onClick={() => {
-                      setProblem(null);
-                      setMoving(moving === row.scheduled ? null : row.scheduled);
-                    }}
-                  >
-                    Move
-                  </button>
+                  {row.move && (
+                    <button
+                      type="button"
+                      aria-expanded={moving === row.scheduled}
+                      aria-controls={`move-${row.scheduled}`}
+                      aria-label={`Move the ${row.label} clear-out`}
+                      className={ROW_BUTTON}
+                      onClick={() => {
+                        setProblem(null);
+                        setMoving(moving === row.scheduled ? null : row.scheduled);
+                      }}
+                    >
+                      Move
+                    </button>
+                  )}
                   <button
                     type="button"
                     aria-disabled={rowBusy}
@@ -112,7 +113,7 @@ export function ComingDates({ rows }: { rows: ComingDateRow[] }) {
                 </>
               )}
             </div>
-            {moving === row.scheduled && (
+            {moving === row.scheduled && row.move && (
               <form
                 id={`move-${row.scheduled}`}
                 className="flex flex-wrap items-end gap-2"
@@ -126,7 +127,7 @@ export function ComingDates({ rows }: { rows: ComingDateRow[] }) {
               >
                 <label className="flex min-w-0 flex-1 flex-col gap-1">
                   <span className="text-[13px] font-bold">New date for the {row.label} clear-out</span>
-                  <input type="date" name="to" required min={row.min} max={row.max} defaultValue={row.min} className="field h-11" />
+                  <input type="date" name="to" required min={row.move.min} max={row.move.max} defaultValue={row.move.start} className="field h-11" />
                 </label>
                 <button type="submit" aria-disabled={rowBusy} className="btn-primary btn-small aria-disabled:cursor-wait aria-disabled:opacity-60">
                   {rowBusy ? "Moving…" : "Move"}

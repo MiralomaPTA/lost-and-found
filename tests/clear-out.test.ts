@@ -26,6 +26,7 @@ import { clearOutAction, moveClearOutAction, putBackClearOutAction, skipClearOut
 import { addTagAction, editTagAction, reorderTagsAction, saveBinDescriptionAction } from "@/app/actions/settings";
 import { GET as archiveCsvRoute } from "@/app/admin/clear-out/[file]/route";
 import { GET as itemsCsvRoute } from "@/app/admin/items.csv/route";
+import { changeTagsAction } from "@/app/actions/items";
 import { upcomingClearOut, type ClearOutChange } from "@/lib/clear-out";
 import { archiveKey, lastArchive, pendingArchiveKey, readArchive } from "@/server/archives";
 import {
@@ -33,12 +34,13 @@ import {
   closeList,
   comingDates,
   countingFrom,
-  finishClearOut,
   moveClearOut,
+  moveRange,
   putBackClearOut,
   runClearOut,
   skipClearOut,
   sweepOrphanPhotos,
+  tidyBucket,
 } from "@/server/clear-out";
 import { CODE_COOKIE, PHONE_COOKIE } from "@/server/cookies";
 import { itemsCsv } from "@/server/csv";
@@ -49,7 +51,7 @@ import { memoryObjectStore } from "@/server/storage/memory";
 import type { ObjectStore } from "@/server/storage/types";
 import { changeSchoolCode, loadSettings, startingSettings, type Settings } from "@/server/settings";
 import { addEntry, cleanBinDescription, editEntry, renameOnList, reorderEntries } from "@/server/tag-lists";
-import { activeColors, activeTypes, myItemsView, nextClearOutFor } from "@/server/views";
+import { activeColors, activeTypes, myItemsView, nextClearOutFor, tagChoices } from "@/server/views";
 import { PHONE_A, PHONE_B, PHONE_C, photoNames, racingStore, testDeps } from "./helpers";
 
 const ADMIN = PHONE_C;
@@ -100,6 +102,15 @@ describe("which date a clear-out counts for", () => {
     expect(countingFrom(file)).toEqual({ date: "2026-11-20", done_at: "2026-11-20T18:00:00.000Z" });
   });
 
+  it("before the first clear-out, counts only from items still in the bin, not removed ones or undone test adds", () => {
+    const file = list(2, "2026-11-02T18:00:00Z");
+    file.items[0].added_at = "2026-11-20T18:00:00.000Z";
+    file.items[1].status = "removed";
+    file.items[1].removed_reason = "add undone";
+    expect(countingFrom(file)).toEqual({ date: "2026-11-20", done_at: "2026-11-20T18:00:00.000Z" });
+    expect(clearOutPlan("2026-11-21", [], file)).toEqual({ kind: "extra", date: "2026-11-21", next: "2026-12-11" });
+  });
+
   it("after one ran early for a coming date, another waits until that date has passed", () => {
     const file = { ...emptyItemsFile(), last_clear_out: { date: "2026-12-11", done_at: "2026-12-09T20:00:00Z" } };
     expect(clearOutPlan("2026-12-10", [], file)).toEqual({ kind: "done", date: "2026-12-11", ranOn: "2026-12-09" });
@@ -120,6 +131,49 @@ describe("the coming dates", () => {
       ["2027-02-12", null, "skipped", "Sam", false, false],
       ["2027-03-12", "2027-03-12", null, null, false, false],
     ]);
+  });
+
+  it("shows only the latest of several overdue dates: one clear-out covers them all", () => {
+    const rows = comingDates("2026-12-20", [], list(1, "2026-11-01T18:00:00Z"), 1);
+    expect(rows.map((r) => [r.scheduled, r.overdue, r.next])).toEqual([["2026-12-11", true, true]]);
+  });
+
+  it("keeps an overdue date that was skipped, so the skip can be undone", () => {
+    const settings = startingSettings(new Date(), null);
+    const file = list(1, "2026-11-01T18:00:00Z");
+    expect(skipClearOut(settings, file, { scheduled: "2026-11-13", today: "2026-11-20", byName: "Sam" })).toEqual({ ok: true });
+    const rows = comingDates("2026-11-20", settings.clear_out_changes, file, 1);
+    expect(rows[0]).toMatchObject({ scheduled: "2026-11-13", date: null, change: "skipped", overdue: false });
+    expect(nextClearOutFor(settings, file, new Date("2026-11-20T18:00:00Z"))).toEqual({ date: "2026-12-11", overdue: false });
+    expect(putBackClearOut(settings, file, { scheduled: "2026-11-13", today: "2026-11-20" })).toEqual({ ok: true });
+    expect(nextClearOutFor(settings, file, new Date("2026-11-20T18:00:00Z"))).toEqual({ date: "2026-11-13", overdue: true });
+  });
+
+  it("offers Move from where each date is now, within what moveClearOut takes", () => {
+    const file = list(1, "2026-11-01T18:00:00Z");
+    const today = "2026-11-20";
+    const rows = comingDates(today, [moved("2027-01-08", "2027-01-15")], file, 4);
+    const ranges = rows.map((row) => [row.scheduled, moveRange(row, today, file)]);
+    expect(ranges).toEqual([
+      // Overdue: from today on.
+      ["2026-11-13", { min: "2026-11-20", max: "2026-12-10", start: "2026-11-20" }],
+      ["2026-12-11", { min: "2026-11-20", max: "2027-01-07", start: "2026-12-11" }],
+      ["2027-01-08", { min: "2026-12-12", max: "2027-02-04", start: "2027-01-15" }],
+      ["2027-02-12", { min: "2027-01-16", max: "2027-03-11", start: "2027-02-12" }],
+    ]);
+    for (const row of rows) {
+      const range = moveRange(row, today, file)!;
+      for (const to of [range.min, range.max]) {
+        const settings = startingSettings(new Date(), null);
+        const outcome = moveClearOut(settings, file, { scheduled: row.scheduled, to, today, byName: "Dana" });
+        // Only a clash with another clear-out's day can refuse a day in range.
+        if (!outcome.ok) expect(outcome.error).toMatch(/already a clear-out/);
+      }
+    }
+    // Over four weeks after its date, an overdue date has no day left to move to.
+    const late = comingDates("2026-12-11", [skipped("2026-12-11")], file, 0).find((r) => r.scheduled === "2026-11-13")!;
+    expect(late.overdue).toBe(true);
+    expect(moveRange(late, "2026-12-11", file)).toBeNull();
   });
 
   it("drops dates a clear-out covered", () => {
@@ -185,7 +239,7 @@ describe("closing the list", () => {
     const now = new Date("2026-12-11T22:00:00Z");
     const closed = closeList(file, { date: "2026-12-11", adminId: ADMIN, adminName: "Dana", run: RUN }, now);
     expect(file).toEqual(before);
-    expect(closed.summary).toEqual({ date: "2026-12-11", done_at: now.toISOString(), done_by_name: "Dana", donated: 1, picked_up: 1, removed: 1 });
+    expect(closed.summary).toEqual({ date: "2026-12-11", done_at: now.toISOString(), done_by_name: "Dana", donated: 1, picked_up: 1, removed: 1, run: RUN });
     expect(closed.archive.items.map((i) => [i.id, i.status, i.photo, i.thumb])).toEqual([
       ["L-0001", "donated", null, null],
       ["L-0002", "claimed", null, null],
@@ -270,7 +324,7 @@ describe("running a clear-out", () => {
     expect((await loadItems(r.deps, { fresh: true })).next_number).toBe(5);
   });
 
-  it("if it stops after the reset, the pending archive still answers, and the Clear out tab finishes it", async () => {
+  it("if it stops after the reset, it's logged, the pending archive still answers, and the tidy-up finishes it", async () => {
     const inner = memoryObjectStore();
     let fail = true;
     const store: ObjectStore = {
@@ -286,6 +340,8 @@ describe("running a clear-out", () => {
     const t = testDeps({ store });
     await setUp(t);
     await expect(runClearOut(t.deps, input)).rejects.toThrow("network down");
+    const logged = await Promise.all((await inner.list("activity/")).map(async (key) => JSON.parse(decode((await inner.get(key))!.body)).action));
+    expect(logged).toEqual(["cleared_out"]);
 
     const now = await loadItems(t.deps, { fresh: true });
     expect(now.items).toEqual([]);
@@ -295,17 +351,70 @@ describe("running a clear-out", () => {
     expect((await lastArchive(t.deps, now))?.items).toHaveLength(3);
     expect(await runClearOut(t.deps, input)).toEqual({ ok: false, reason: "done" });
 
-    await finishClearOut(t.deps);
+    await tidyBucket(t.deps, { force: true });
     expect(await inner.list("archive/")).toEqual([archiveKey("2026-12-11")]);
     // The photos the run didn't get to go too (they're long past the hour).
     expect(await inner.list("photos/")).toEqual([]);
+  });
+
+  it("says how many photos are left when deletions fail, and later admin pages delete them", async () => {
+    let failing = true;
+    const t = testDeps();
+    const names = await setUp(t);
+    const store = t.store;
+    const flaky: ObjectStore = { ...store, delete: async (key) => (failing && /[0-9a-f]{32}\.jpg$/.test(key) ? Promise.reject(new Error("R2 down")) : store.delete(key)) };
+    const r = { ...t.deps, store: flaky };
+    const result = await runClearOut(r, input);
+    // Four photos (not thumbnails) failed twice; nothing is counted twice.
+    expect(result).toMatchObject({ ok: true, photosLeft: 4 });
+    expect((await store.list("photos/")).length).toBe(4);
+    failing = false;
+    // A later admin page, once they're over an hour old (as any photo uploading at the time would be by then).
+    t.advance(2 * HOUR);
+    await tidyBucket(r, { force: true });
+    expect(await store.list("photos/")).toEqual([]);
+    expect(names).toHaveLength(8);
+  });
+
+  it("the tidy-up deletes a failed run's pending archive after an hour, but names a finished run's", async () => {
+    const t = testDeps();
+    await setUp(t);
+    // A run that failed before its reset left this behind.
+    await t.store.put(pendingArchiveKey("aaaaaaaaaaaaaaaa"), new TextEncoder().encode("{}"));
+    // A finished run whose archive never got its name, from an earlier clear-out still in the history.
+    const earlier = closeList(list(1, "2026-10-01T18:00:00Z"), { date: "2026-10-09", adminId: ADMIN, adminName: "Dana", run: "bbbbbbbbbbbbbbbb" }, new Date("2026-10-09T22:00:00Z"));
+    await t.store.put(pendingArchiveKey("bbbbbbbbbbbbbbbb"), new TextEncoder().encode(JSON.stringify(earlier.archive)));
+    await changeItems(t.deps, (file) => ({ value: { ...file, clear_outs: [earlier.summary] }, result: null }));
+    await tidyBucket(t.deps, { force: true });
+    expect((await t.store.list("archive/")).sort()).toEqual([archiveKey("2026-10-09"), pendingArchiveKey("aaaaaaaaaaaaaaaa")]);
+    t.advance(2 * HOUR);
+    await tidyBucket(t.deps);
+    expect(await t.store.list("archive/")).toEqual([archiveKey("2026-10-09")]);
+    // At most every ten minutes per server, unless forced.
+    await t.store.put(pendingArchiveKey("cccccccccccccccc"), new TextEncoder().encode("{}"));
+    t.advance(2 * HOUR);
+    await tidyBucket(t.deps);
+    t.advance(5 * 60 * 1000);
+    await tidyBucket(t.deps);
+    expect(await t.store.list("archive/pending/")).toEqual([]);
+  });
+
+  it("two servers running it at once: one clears out, the other is told it's done", async () => {
+    const store = memoryObjectStore();
+    const a = testDeps({ store });
+    await setUp(a);
+    const b = testDeps({ store });
+    const results = await Promise.all([runClearOut(a.deps, input), runClearOut(b.deps, input)]);
+    expect(results.map((r) => (r.ok ? "ok" : r.reason)).sort()).toEqual(["done", "ok"]);
+    expect(await store.list("archive/")).toEqual([archiveKey("2026-12-11")]);
+    expect((await loadItems(a.deps, { fresh: true })).clear_outs).toHaveLength(1);
   });
 
   it("the orphan sweep leaves photos the list uses", async () => {
     const t = testDeps();
     const names = await setUp(t);
     t.advance(2 * HOUR);
-    expect(await sweepOrphanPhotos(t.deps)).toBe(0);
+    expect(await sweepOrphanPhotos(t.deps)).toEqual([]);
     expect((await t.store.list("photos/")).sort()).toEqual(names.map((n) => `photos/${n}`).sort());
   });
 });
@@ -341,6 +450,9 @@ describe("CSVs", () => {
     const closed = closeList(bin(), { date: "2026-12-11", adminId: ADMIN, adminName: "Dana", run: RUN }, new Date("2026-12-11T22:00:00Z"));
     const rows = itemsCsv(closed.archive.items).split("\r\n").slice(1, 4);
     expect(rows.map((row) => row.split(",")[1])).toEqual(["Donated", "Picked up", "Removed"]);
+    // Archived items carry the admin's phone ID (ended_by, updated_by) and the families': none reach the CSV.
+    const csv = itemsCsv(closed.archive.items);
+    for (const id of [PHONE_A, PHONE_B, ADMIN]) expect(csv).not.toContain(id);
     expect(rows[2]).toContain("Not in the bin");
   });
 });
@@ -428,9 +540,8 @@ describe("the actions and downloads", () => {
     }
     expect((await saveBinDescriptionAction({}, form({ bin: "by the gym" }))).error).toMatch(/isn't an admin/);
     expect((await loadItems(t.deps, { fresh: true })).items).toHaveLength(3);
-    const response = await itemsCsvRoute(new NextRequest("http://localhost/admin/items.csv"));
-    expect(response.status).toBe(303);
-    expect(response.headers.get("location")).toBe("http://localhost/admin-code");
+    const response = await itemsCsvRoute();
+    expect(response.status).toBe(403);
   });
 
   it("clear out, say what happened, and refuse a second tap", async () => {
@@ -443,7 +554,7 @@ describe("the actions and downloads", () => {
   });
 
   it("download the current list and a past clear-out's items", async () => {
-    const current = await itemsCsvRoute(new NextRequest("http://localhost/admin/items.csv"));
+    const current = await itemsCsvRoute();
     expect(current.headers.get("content-type")).toBe("text/csv; charset=utf-8");
     expect(current.headers.get("content-disposition")).toBe('attachment; filename="lost-and-found-2026-12-07.csv"');
     expect(current.headers.get("cache-control")).toBe("private, no-store");
@@ -475,6 +586,21 @@ describe("the actions and downloads", () => {
     expect(activeTypes(await loadSettings(t.deps))).toContain("Coat");
     expect(await addTagAction("colors", "Teal", "#008080")).toEqual({ ok: true });
     expect(await addTagAction("planets", "Mars")).toMatchObject({ ok: false });
+  });
+
+  it("Fix tags keeps a type an admin hid on the items that have it, but won't give it to others", async () => {
+    await changeItems(t.deps, (file) => {
+      file.items[1].type = "Lunch box";
+      return { value: file, result: null };
+    });
+    expect(await editTagAction("types", "Lunch box", { newName: "Lunch box", active: false })).toEqual({ ok: true });
+    const settings = await loadSettings(t.deps);
+    expect(tagChoices(settings, { type: "Lunch box", color: "Navy" }).types.at(-1)).toBe("Lunch box");
+    expect(tagChoices(settings, { type: "Jacket", color: "Navy" }).types).not.toContain("Lunch box");
+    // L-0002 is a lunch box: its other tags can change.
+    expect(await changeTagsAction("L-0002", { type: "Lunch box", color: "Navy", has_name: true })).toEqual({ ok: true });
+    expect((await loadItems(t.deps, { fresh: true })).items[1]).toMatchObject({ type: "Lunch box", has_name: true });
+    expect(await changeTagsAction("L-0001", { type: "Lunch box", color: "Navy", has_name: false })).toEqual({ ok: false, message: "Pick a type from the list." });
   });
 
   it("save where the bin is", async () => {

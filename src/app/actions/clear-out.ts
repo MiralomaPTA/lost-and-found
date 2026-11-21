@@ -22,6 +22,9 @@ export type ClearOutAnswer = { ok: true; message: string } | { ok: false; messag
 const NOT_ADMIN = "This phone isn't an admin any more. The admin code may have changed: enter the new one on the admin code page.";
 const BUSY = "Lots of changes are happening at once. Try again.";
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
+/** For "Done by …" and "Moved … by …" when the admin's phone has no name. */
+const UNNAMED = "an admin";
+const FAILED = "Something went wrong. Reload the page and try again.";
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -39,7 +42,7 @@ export async function clearOutAction(expectedDate: unknown): Promise<ClearOutAns
     const settings = await loadSettings(deps);
     const result = await runClearOut(deps, {
       adminId: admin.phoneId,
-      adminName: admin.device.name ?? `An admin`,
+      adminName: admin.device.name ?? UNNAMED,
       expectedDate,
       changes: settings.clear_out_changes,
     });
@@ -57,7 +60,10 @@ export async function clearOutAction(expectedDate: unknown): Promise<ClearOutAns
     await readYourWrites();
     refresh();
     const { donated, picked_up } = result.summary;
-    const photos = result.photosLeft > 0 ? ` ${plural(result.photosLeft, "photo", "photos")} couldn't be deleted yet; the next clear-out tries again.` : " All their photos are deleted.";
+    const photos =
+      result.photosLeft > 0
+        ? ` ${plural(result.photosLeft, "photo", "photos")} couldn't be deleted yet. They're tried again each time an admin page opens.`
+        : " All their photos are deleted.";
     return { ok: true, message: `Cleared out: ${plural(donated, "item", "items")} donated, ${plural(picked_up, "claim", "claims")} closed as picked up.${photos}` };
   } catch (error) {
     if (error instanceof ConflictError) return { ok: false, message: BUSY };
@@ -80,7 +86,7 @@ async function changeDate(action: string, scheduled: unknown, apply: (settings: 
   const deps = await getDeps();
   try {
     const file = await loadItems(deps, { fresh: true });
-    const input = { scheduled, today: pacificDate(deps.now()), byName: admin.device.name ?? "an admin" };
+    const input = { scheduled, today: pacificDate(deps.now()), byName: admin.device.name ?? UNNAMED };
     const outcome = await updateSettings<DateChange>(deps, (current) => {
       const result = apply(current, file, input);
       return result.ok ? { value: current, result } : { result };
@@ -91,7 +97,8 @@ async function changeDate(action: string, scheduled: unknown, apply: (settings: 
     return { ok: true };
   } catch (error) {
     if (error instanceof ConflictError) return { ok: false, message: BUSY };
-    throw error;
+    console.error(`Couldn't save ${action}`, error);
+    return { ok: false, message: FAILED };
   }
 }
 

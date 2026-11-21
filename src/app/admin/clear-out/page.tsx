@@ -1,26 +1,28 @@
 import type { Metadata } from "next";
-import { after } from "next/server";
 import { ClearOutButton, type ClearOutConfirmation } from "@/components/admin/ClearOutButton";
 import { ComingDates, type ComingDateRow } from "@/components/admin/ComingDates";
-import { doneThrough, untilLabel, upcomingClearOut } from "@/lib/clear-out";
-import { dateLabel, dayFromNumber, dayLabel, dayNumber, pacificDate, shortDayLabel } from "@/lib/dates";
+import { untilLabel, upcomingClearOut } from "@/lib/clear-out";
+import { dateLabel, dayLabel, pacificDate, shortDayLabel } from "@/lib/dates";
 import {
   clearOutCounts,
   clearOutPlan,
   comingDates,
   countingFrom,
-  finishClearOut,
-  MOVE_DAYS,
+  moveRange,
   pastClearOuts,
   type ClearOutCounts,
   type ClearOutPlan,
   type ComingDate,
 } from "@/server/clear-out";
 import { getDeps } from "@/server/deps";
-import { loadItems, sweepReplacedPhotos } from "@/server/items";
+import { loadItems, type ItemsFile } from "@/server/items";
 import { requireAdmin } from "@/server/session";
+import { tidyAfterAdminPage } from "@/server/tidy";
 
 export const metadata: Metadata = { title: "Clear out · Admin · Lost & Found" };
+
+/** Also the limit for its actions: a clear-out deletes every photo on the list, a few at a time. */
+export const maxDuration = 60;
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -29,16 +31,13 @@ export default async function ClearOutPage() {
   const { settings } = await requireAdmin();
   const deps = await getDeps();
   const file = await loadItems(deps, { fresh: true });
-  after(async () => {
-    // A clear-out that stopped partway gets finished; old photos past their Undo time go.
-    await finishClearOut(deps).catch((error) => console.error("Couldn't finish the last clear-out", error));
-    await sweepReplacedPhotos(deps).catch((error) => console.error("Couldn't sweep replaced photos", error));
-  });
+  // Finishes a clear-out that stopped partway, and retries photos it couldn't delete.
+  tidyAfterAdminPage(deps, { force: true });
   const today = pacificDate(deps.now());
   const plan = clearOutPlan(today, settings.clear_out_changes, file);
   const counts = clearOutCounts(file);
   const next = upcomingClearOut(today, settings.clear_out_changes, countingFrom(file));
-  const rows = comingDates(today, settings.clear_out_changes, file).map((row) => dateRow(row, today, doneThrough(file.last_clear_out)));
+  const rows = comingDates(today, settings.clear_out_changes, file).map((row) => dateRow(row, today, file));
   const past = pastClearOuts(file);
 
   return (
@@ -175,7 +174,7 @@ function confirmation(plan: Exclude<ClearOutPlan, { kind: "done" }>, counts: Cle
   return { date: plan.date, title, sentence, rows, button: counts.available > 0 ? `Clear out ${plural(counts.available, "item")}` : "Clear out" };
 }
 
-function dateRow(row: ComingDate, today: string, through: string | null): ComingDateRow {
+function dateRow(row: ComingDate, today: string, file: ItemsFile): ComingDateRow {
   const by = row.byName ? ` by ${row.byName}` : "";
   const note = row.overdue
     ? "Hasn't been done yet"
@@ -186,8 +185,6 @@ function dateRow(row: ComingDate, today: string, through: string | null): Coming
         : row.next
           ? "Next"
           : "Second Friday";
-  const offset = (days: number) => dayFromNumber(dayNumber(row.scheduled) + days);
-  const earliest = [today, offset(-MOVE_DAYS), through ? dayFromNumber(dayNumber(through) + 1) : today].sort().at(-1)!;
   return {
     scheduled: row.scheduled,
     label: dayLabel(row.date ?? row.scheduled),
@@ -196,8 +193,7 @@ function dateRow(row: ComingDate, today: string, through: string | null): Coming
     flagged: row.overdue || row.change !== null,
     skipped: row.change === "skipped",
     changed: row.change !== null,
-    min: earliest,
-    max: offset(MOVE_DAYS),
+    move: moveRange(row, today, file),
   };
 }
 
