@@ -12,7 +12,8 @@ import { uploadItem } from "@/lib/upload";
 /**
  * *Add one from a photo* (spec section 4): pick a photo already on the phone,
  * crop it by hand, tag it, add it. Nothing is pre-selected. After adding, a
- * bar offers *Undo* (until the screen is left) and *Add another*.
+ * bar offers *Undo* (until the screen is left) and *Add another*, and the
+ * add button becomes *See it in All items*.
  */
 
 type Status =
@@ -55,10 +56,13 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
   const input = useRef<HTMLInputElement>(null);
   const unanswered = useRef<Unanswered | null>(null);
   const bar = useRef<HTMLDivElement>(null);
+  const seeIt = useRef<HTMLAnchorElement>(null);
 
   const saving = status.kind === "saving";
   const added = status.kind === "added";
-  const ready = Boolean(picked && box && type && color) && !saving && !added;
+  // While the next photo loads, the old photo and its tags are still on screen: nothing to add.
+  const reading = status.kind === "reading";
+  const ready = Boolean(picked && box && type && color) && !saving && !added && !reading;
 
   // Leaving mid-upload would lose the item.
   useEffect(() => {
@@ -74,9 +78,13 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
   useEffect(() => () => picked?.image.close(), [picked]);
 
   // The bar's buttons replace the one that was pressed: keep keyboard focus there.
+  // The bar is fixed to the bottom, so scroll See it in All items clear of it.
   const undone = status.kind === "undone";
   useEffect(() => {
-    if (added) bar.current?.querySelector("button")?.focus();
+    if (added) {
+      seeIt.current?.scrollIntoView({ block: "nearest" });
+      bar.current?.querySelector("button")?.focus({ preventScroll: true });
+    }
     if (undone) bar.current?.querySelector<HTMLButtonElement>("[data-another]")?.focus();
   }, [added, undone]);
 
@@ -233,12 +241,26 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
       )}
 
       <section aria-label="Tags" className={`mx-auto mt-3 flex w-full max-w-md flex-col gap-3 ${picked ? "" : "hidden"}`}>
-        <fieldset disabled={saving || added} className="contents">
+        <fieldset disabled={saving || added || reading} className="contents">
           <TagPicker types={types} colors={colors} type={type} color={color} hasName={hasName} onType={setType} onColor={setColor} onHasName={setHasName} />
         </fieldset>
-        <button type="button" onClick={() => void save()} aria-disabled={!ready} className="btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
-          {saving ? `Adding… ${Math.round(status.progress * 100)}%` : added ? "Added" : "Add to the grid"}
-        </button>
+        {added ? (
+          // Newest first, so what was just added is at the top of the grid. Leaving ends its Undo,
+          // so it waits while an Undo is on its way: leaving then would drop the answer.
+          <Link
+            ref={seeIt}
+            href="/"
+            aria-disabled={undoing || undefined}
+            onClick={(event) => undoing && event.preventDefault()}
+            className="btn-primary scroll-mb-24 aria-disabled:cursor-wait aria-disabled:opacity-60"
+          >
+            See it in All items
+          </Link>
+        ) : (
+          <button type="button" onClick={() => void save()} aria-disabled={!ready} className="btn-primary aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
+            {saving ? `Adding… ${Math.round(status.progress * 100)}%` : "Add to the grid"}
+          </button>
+        )}
         {!ready && !saving && !added && picked && <p className="text-center text-xs text-muted">Pick a type and a color first.</p>}
         <p className="text-center text-xs text-muted">
           Once an item&apos;s Undo has gone, email <a href={`mailto:${contactEmail}`}>{contactEmail}</a> to have it removed.
