@@ -61,7 +61,7 @@ There are two roles. There is no helper role: anyone with the school code can ad
 
 **Admins: an admin code.** Admins don't sign in or get email. They type a second code that is shared only with admins.
 
-- Typing the admin code in the first-visit code box makes that phone an admin. It also counts as entering the current school code. A phone that's already in uses *Enter a new code* in the footer.
+- Typing the admin code in the first-visit code box makes that phone an admin. It also counts as entering the current school code. The box doesn't say so, so it doesn't advertise admin access. A phone that's already in uses *Enter a new code* in the footer.
 - If the phone has no name yet, it asks for one, so the admin pages and the activity log can say who did what ("Done by Dana").
 - A phone stays an admin until an admin changes the admin code, or until its cookie expires or the browser is cleared. *Leave admin* on Settings turns that phone back into an ordinary one.
 - There is no list of admins and no way to remove a single phone. To take access away, an admin changes the admin code and gives the new one to the admins who should keep it. Every other admin phone becomes an ordinary phone within a few seconds, keeping its name and *My items*.
