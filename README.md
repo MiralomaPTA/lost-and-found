@@ -35,7 +35,7 @@ Copy `.env.example` to `.env.local`.
 
 | Variable | Purpose |
 | --- | --- |
-| `APP_URL` | Public base URL, e.g. `https://lostandfound.miralomasf.com` |
+| `APP_URL` | Public base URL, e.g. `https://lost.miralomasf.com` |
 | `STORAGE` | `local` (default) or `r2` |
 | `CONTACT_EMAIL` | The address shown for questions; defaults to `lostandfound@miralomasf.com` |
 | `INITIAL_ADMIN_CODE` | The first admin code: at least three words of three or more letters, 15+ characters (three random words work well). Copied into `settings.json` when it has no admin code, so it can be set after the first deploy. After that, admins change it on Settings and this is ignored. Development with local storage defaults to `local admin code` |
@@ -55,9 +55,10 @@ One-time steps, mostly in other people's dashboards. The spec's *Rollout plan* h
 3. **Check safe writes.** Put the three R2 values in `.env.local` and run `npm run check:r2`. It writes, changes and races one scratch file under `_checks/`, deletes it, and prints PASS or FAIL for each step. Every line should say PASS. If the line "Refuses a write with an out-of-date version tag" fails, stop and decide on the fallback in the spec (a small Cloudflare Worker for `items.json` and `settings.json` writes) before Phase 1 builds on it. **Done Nov 20, 2026: every check passed.**
 4. **Vercel, as lostandfound@.**
    - Create a Hobby account and import `MiralomaPTA/lost-and-found`. An owner of the MiralomaPTA GitHub organization may need to approve Vercel's GitHub app.
-   - Set `STORAGE=r2`, the four `R2_*` values, `APP_URL=https://lostandfound.miralomasf.com`, `CONTACT_EMAIL` and `INITIAL_ADMIN_CODE`.
-   - Add the domain `lostandfound.miralomasf.com`, then add the CNAME record Vercel shows wherever miralomasf.com's DNS is managed.
-5. **Codes.** Pick the first school code (a short word for the newsletter and the sign at the bin) and the first admin code (three random words, for admins only; the app refuses anything shorter than three words of three or more letters). The admin code goes in `INITIAL_ADMIN_CODE`. Then open the site, type the admin code in the code box, and set the school code on Settings; until then only admins can get in.
+   - Set `STORAGE=r2`, the four `R2_*` values, `APP_URL=https://lost.miralomasf.com`, `CONTACT_EMAIL` and `INITIAL_ADMIN_CODE`.
+   - Add the domain `lost.miralomasf.com`, then add the CNAME record Vercel shows wherever miralomasf.com's DNS is managed.
+   - **Done Nov 21, 2026: the site is live at https://lost.miralomasf.com.**
+5. **Codes.** Pick the first school code (a short word for the newsletter and the sign at the bin) and the first admin code (three random words, for admins only; the app refuses anything shorter than three words of three or more letters). The admin code goes in `INITIAL_ADMIN_CODE`. Then open the site, type the admin code in the code box, and set the school code on Settings; until then only admins can get in. **Done Nov 21, 2026.**
 6. **Photo spot.** Set up a spot by the bin with good light and a plain lime-green poster board as the backdrop (spec open question 11).
 
 ## Before the pilot

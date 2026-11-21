@@ -339,7 +339,7 @@ The bucket, "miraloma-pta-lost-and-found":
    - As lostandfound@, create a Cloudflare account, an R2 bucket, and an API token that can reach only that bucket. The app creates its files on first use.
    - Check safe writes before building on them. A short script writes an object, changes it, then tries a write with the old ETag (`If-Match`) and confirms that R2 refuses it. If R2's S3 interface doesn't honor `If-Match`, writes to `items.json` and `settings.json` go through a small Cloudflare Worker that uses R2's own conditional write (`onlyIf`). That Worker fits the free plan, and the rest of the design stays the same. **Done Nov 20, 2026: every check passed (`npm run check:r2`), so the Worker isn't needed.**
    - Put the first admin code in an environment variable. The app copies it to `settings.json` on first use, and admins can change it from Settings.
-   - Create the Vercel project, add the GitHub repository secrets and the R2 credentials, and add the DNS record for lostandfound.miralomasf.com.
+   - Create the Vercel project, add the GitHub repository secrets and the R2 credentials, and add the DNS record for lost.miralomasf.com.
    - Set up a photo spot by the bin with good light and a plain backdrop (open question 11).
    - Pick the first school code and put it on a sign at the bin. Give the admin code to the admins only.
 2. **Phase 1: MVP.** **Everything but the pilot was built by Nov 21, 2026.**
@@ -391,7 +391,7 @@ Success measures: the share of items claimed before each clear-out, items donate
 | Unclaimed items | Donated at the monthly clear-out, on the second Friday of each month. Admins can move or skip a date |
 | Clear-out | Items still on the list are donated. Claimed items are assumed picked up: they stay *Claimed* and their claims close as *Picked up*. All photos are deleted. Run only by an admin tapping *Clear out* in the admin section after the bin has been emptied, with a confirmation and no undo; never automatic |
 | Workspace account | A new account, lostandfound@miralomasf.com, that owns the Cloudflare and Vercel accounts and is the contact address for questions and concerns. The app sends nothing from it |
-| Hostname | lostandfound.miralomasf.com |
+| Hostname | lost.miralomasf.com |
 | Languages | English only |
 | Hosting | Vercel Hobby for the app, Cloudflare R2 for photos and JSON; code in the MiralomaPTA GitHub organization. Everything on Cloudflare was considered and set aside for now (see *Hosting*) |
 | Budget | Zero added cost |
