@@ -107,7 +107,7 @@ stateDiagram-v2
 - **Item page:** the large photo with pinch-zoom, type, color, its age and the date it was added, *This is mine*, and *Fix tags* (section 5). Swipe or arrows move to the next item in the current filter and sort. An item that has been claimed says "This item has been claimed. If it's yours, email the PTA"; one that was cleared out says "This item was donated on Dec 11." Either can be reached from an old link.
 - Thumbnails load as they scroll into view. About 300 items fits on one page.
 - The bottom bar has three tabs: *All items*, *Add* (section 4) and *My items* (section 3).
-- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Enter a new code*. That link opens the admin code screen, but the footer doesn't say it's for admins, so it doesn't advertise admin access to families.
+- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Enter a new code*. That link opens the admin code screen, but the footer doesn't say it's for admins, so it doesn't advertise admin access to families. The footer ends with "Made with ❤️ by the Miraloma PTA", linked to the PTA's page, https://www.miralomasf.com/pta.
 
 ### 2. Claiming
 

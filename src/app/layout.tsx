@@ -60,6 +60,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               <Link href="/admin-code">Enter a new code</Link>
             </span>
           )}
+          <span>
+            Made with{" "}
+            <span role="img" aria-label="love">
+              ❤️
+            </span>{" "}
+            by <a href="https://www.miralomasf.com/pta">the Miraloma PTA</a>
+          </span>
         </footer>
       </body>
     </html>
