@@ -234,6 +234,26 @@ describe("the adder's undo and fixing tags", () => {
     expect((await loadItems(t.deps, { fresh: true })).items[0].status).toBe("removed");
   });
 
+  it("lets anyone fix tags on a claimed item too, logs before and after, and refuses once it's off the list", async () => {
+    await addUploadedItem(t.deps, settings, adder, upload());
+    await setDeviceName(t.deps, PHONE_B, "Lee family");
+    await asPhone(PHONE_B);
+    const { claimAction } = await import("@/app/actions/claims");
+    expect(await claimAction("L-0001")).toMatchObject({ ok: true });
+    await asPhone(PHONE_A);
+    expect(await changeTagsAction("L-0001", { type: "Hoodie", color: "Gray", has_name: false })).toEqual({ ok: true });
+    // Saving the same tags again changes and logs nothing.
+    expect(await changeTagsAction("L-0001", { type: "Hoodie", color: "Gray", has_name: false })).toEqual({ ok: true });
+    const entries = await Promise.all((await t.store.list("activity/")).map(async (key) => JSON.parse(new TextDecoder().decode((await t.store.get(key))!.body))));
+    const changes = entries.filter((e) => e.action === "tags_changed");
+    expect(changes).toEqual([expect.objectContaining({ actor: PHONE_A, item_id: "L-0001", detail: { from: "Jacket, Navy, has a name", to: "Hoodie, Gray" } })]);
+    await asPhone(PHONE_B);
+    const { notThereAction } = await import("@/app/actions/claims");
+    const claimId = (await loadItems(t.deps, { fresh: true })).items[0].claims[0].id;
+    await notThereAction("L-0001", claimId);
+    expect(await changeTagsAction("L-0001", { type: "Shirt", color: "Gray", has_name: false })).toEqual({ ok: false, message: "This item isn't on the list any more." });
+  });
+
   it("takes back an upload by its reference, whether or not it made an item", async () => {
     await addUploadedItem(t.deps, settings, adder, upload());
     // Another phone's reference does nothing to this phone's item.

@@ -5,17 +5,16 @@ import type { ReactNode } from "react";
 import { ClaimControls } from "@/components/claims/ClaimControls";
 import { ClaimsProvider } from "@/components/claims/ClaimsProvider";
 import { CodeGate } from "@/components/CodeGate";
-import { TagIcon } from "@/components/grid/ItemCard";
 import { BackLink } from "@/components/item/BackLink";
+import { ItemTags } from "@/components/item/ItemTags";
 import { PhotoPane } from "@/components/item/PhotoPane";
-import { Swatch } from "@/components/Swatch";
 import { gridSearch, parseGridQuery } from "@/lib/grid-query";
 import { findArchivedItem } from "@/server/archives";
 import { config } from "@/server/config";
 import { getDeps } from "@/server/deps";
 import { ITEM_ID } from "@/server/items";
 import { getItemsFile, getVisitor } from "@/server/session";
-import { archivedItemView, itemLabel, itemPageView, openClaimItemIds, type Swatch as SwatchValue } from "@/server/views";
+import { activeColors, activeTypes, archivedItemView, itemLabel, itemPageView, openClaimItemIds, swatchFor } from "@/server/views";
 
 /**
  * "Navy jacket · Lost & Found". A title per item lets screen readers announce
@@ -88,11 +87,17 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/ite
           </Notice>
         ) : (
           <>
-            <Tags
-              type={view.kind === "on-list" ? view.card.type : view.type}
-              color={view.kind === "on-list" ? view.card.color : view.color}
-              swatch={view.kind === "on-list" ? view.card.swatch : view.swatch}
-              hasName={view.kind === "on-list" ? view.card.hasName : view.hasName}
+            <ItemTags
+              key={id}
+              itemId={view.kind === "on-list" ? view.card.id : null}
+              initial={
+                view.kind === "on-list"
+                  ? { type: view.card.type, color: view.card.color, hasName: view.card.hasName }
+                  : { type: view.type, color: view.color, hasName: view.hasName }
+              }
+              types={activeTypes(settings)}
+              colors={activeColors(settings)}
+              palette={Object.fromEntries(settings.colors.map((c) => [c.name, swatchFor(settings, c.name)]))}
             />
             <dl className="grid grid-cols-2 gap-3">
               {view.kind === "on-list" && <Fact label="In the bin" value={view.card.age} />}
@@ -149,26 +154,6 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/ite
               </>
             )}
           </Notice>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Tags({ type, color, swatch, hasName }: { type: string; color: string; swatch: SwatchValue; hasName: boolean }) {
-  return (
-    <div className="flex flex-col gap-2">
-      <h1 className="text-[28px] leading-[1.1] font-extrabold">{type}</h1>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex h-[30px] items-center gap-1.5 rounded-full bg-white pr-3 pl-2 text-sm font-semibold">
-          <Swatch swatch={swatch} size={16} />
-          {color}
-        </span>
-        {hasName && (
-          <span className="inline-flex h-[30px] items-center gap-1.5 rounded-full bg-white pr-3 pl-2.5 text-sm font-semibold">
-            <TagIcon size={14} />
-            Has a name
-          </span>
         )}
       </div>
     </div>
