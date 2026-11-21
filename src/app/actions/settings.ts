@@ -15,7 +15,7 @@ import { addEntry, BIN_DESCRIPTION_MAX, cleanBinDescription, editEntry, renameOn
  * colors lists. Each checks the admin code again and answers with a message.
  */
 
-const NOT_ADMIN = "This phone isn't an admin any more. The admin code may have changed: enter the new one on the admin code page.";
+const NOT_ADMIN = "This phone isn't an admin any more. The admin code may have changed: tap Enter a new code at the bottom of the page and type the new one.";
 const BUSY = "Lots of changes are happening at once. Try again.";
 
 export async function saveBinDescriptionAction(prev: FormState, formData: FormData): Promise<FormState> {

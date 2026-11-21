@@ -177,7 +177,7 @@ export default async function HelpPage() {
               <>This phone is an admin. </>
             ) : (
               <>
-                Tap <Link href="/admin-code">Enter a new code</Link> at the bottom of any page, and enter the admin code there.{" "}
+                Tap <Link href="/admin-code">Enter a new code</Link> at the bottom of any page and type the admin code.{" "}
               </>
             )}
             The admin code isn&apos;t the school code, and another admin can give it to you from Settings. A phone stays an admin until someone changes the admin code.{" "}

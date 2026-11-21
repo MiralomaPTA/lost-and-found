@@ -61,7 +61,7 @@ There are two roles. There is no helper role: anyone with the school code can ad
 
 **Admins: an admin code.** Admins don't sign in or get email. They type a second code that is shared only with admins.
 
-- Typing the admin code in the first-visit code box makes that phone an admin. It also counts as entering the current school code. The box doesn't say so, so it doesn't advertise admin access. A phone that's already in uses *Enter a new code* in the footer.
+- Typing the admin code in the first-visit code box makes that phone an admin. It also counts as entering the current school code. The box doesn't say so, to avoid advertising admin access. A phone that's already in uses *Enter a new code* in the footer. The school code works there too: it lets the phone in and goes home, rather than counting as a wrong try.
 - If the phone has no name yet, it asks for one, so the admin pages and the activity log can say who did what ("Done by Dana").
 - A phone stays an admin until an admin changes the admin code, or until its cookie expires or the browser is cleared. *Leave admin* on Settings turns that phone back into an ordinary one.
 - There is no list of admins and no way to remove a single phone. To take access away, an admin changes the admin code and gives the new one to the admins who should keep it. Every other admin phone becomes an ordinary phone within a few seconds, keeping its name and *My items*.
@@ -107,7 +107,7 @@ stateDiagram-v2
 - **Item page:** the large photo with pinch-zoom, type, color, its age and the date it was added, *This is mine*, and *Fix tags* (section 5). Swipe or arrows move to the next item in the current filter and sort. An item that has been claimed says "This item has been claimed. If it's yours, email the PTA"; one that was cleared out says "This item was donated on Dec 11." Either can be reached from an old link.
 - Thumbnails load as they scroll into view. About 300 items fits on one page.
 - The bottom bar has three tabs: *All items*, *Add* (section 4) and *My items* (section 3).
-- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Enter a new code*. That link opens the admin code screen, but the footer doesn't say it's for admins, so it doesn't advertise admin access to families. The footer ends with "Made with ❤️ by the Miraloma PTA", linked to the PTA's page, https://www.miralomasf.com/pta.
+- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Enter a new code*. That link opens the admin code screen, but the footer doesn't mention admins. The footer ends with "Made with ❤️ by the Miraloma PTA", linked to the PTA's page, https://www.miralomasf.com/pta.
 
 ### 2. Claiming
 

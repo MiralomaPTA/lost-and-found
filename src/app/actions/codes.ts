@@ -21,7 +21,7 @@ import { changeAdminCode, changeSchoolCode, loadSettings } from "@/server/settin
 
 const LOCKED = "That's 5 wrong codes in a row. Wait a minute, then try again.";
 const TOO_MANY_FROM_ADDRESS = "Too many wrong codes from this network. Wait 15 minutes, then try again.";
-const NOT_ADMIN = "This phone isn't an admin any more. The admin code may have changed: enter the new one on the admin code page.";
+const NOT_ADMIN = "This phone isn't an admin any more. The admin code may have changed: tap Enter a new code at the bottom of the page and type the new one.";
 const BUSY = "Lots of changes are happening at once. Try again.";
 
 /** Runs a change that writes JSON files, turning a lost race into a "try again" message. */
@@ -35,8 +35,11 @@ async function orTryAgain(attempt: number, run: () => Promise<FormState>): Promi
 }
 
 /**
- * The code box. On the first-visit screen it takes the school code or the
- * admin code; on the admin code page (`want=admin`) only the admin code.
+ * The code box. It takes the school code or the admin code, on the
+ * first-visit screen and on the admin code page (`want=admin`) alike. The
+ * footer's *Enter a new code* leads to the admin code page, so a family whose
+ * school code changed may well type it there: it lets them in and goes home,
+ * rather than counting as a wrong try.
  */
 export async function enterCodeAction(prev: FormState, formData: FormData): Promise<FormState> {
   const attempt = (prev.attempt ?? 0) + 1;
@@ -53,12 +56,11 @@ export async function enterCodeAction(prev: FormState, formData: FormData): Prom
   if (isLocked(tries, nowMs)) return { error: LOCKED, attempt, values };
 
   const match = matchCode(settings, values.code);
-  if (match === "wrong" || (wantAdmin && match === "school")) {
+  if (match === "wrong") {
     recordWrongCodeFrom(address, nowMs);
     const next = recordWrongCode(tries, nowMs);
     await writeTries(next);
     if (isLocked(next, nowMs)) return { error: LOCKED, attempt, values };
-    if (match === "school") return { error: "That's the school code. This box takes the admin code, which only PTA admins have.", attempt, values };
     return {
       error: wantAdmin ? "That isn't the admin code." : "That code doesn't match. It's in the PTA newsletter and on the sign at the bin.",
       attempt,
@@ -70,7 +72,8 @@ export async function enterCodeAction(prev: FormState, formData: FormData): Prom
   const next = safeNext(formData.get("next"));
   if (match === "school") {
     await rememberSchoolCode(await ensurePhoneId(deps), settings);
-    redirect(next ?? "/");
+    // From the admin code page, home: its `next` is an admin page.
+    redirect(wantAdmin ? "/" : (next ?? "/"));
   }
 
   // The admin code: only for a phone ID this app recorded (see ensurePhoneId).
