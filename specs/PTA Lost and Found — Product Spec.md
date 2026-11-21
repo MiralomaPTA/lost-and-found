@@ -107,7 +107,7 @@ stateDiagram-v2
 - **Item page:** the large photo with pinch-zoom, type, color, its age and the date it was added, *This is mine*, and *Fix tags* (section 5). Swipe or arrows move to the next item in the current filter and sort. An item that has been claimed says "This item has been claimed. If it's yours, email the PTA"; one that was cleared out says "This item was donated on Dec 11." Either can be reached from an old link.
 - Thumbnails load as they scroll into view. About 300 items fits on one page.
 - The bottom bar has three tabs: *All items*, *Add* (section 4) and *My items* (section 3).
-- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), and to *Admin code*.
+- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Admin code*.
 
 ### 2. Claiming
 
@@ -172,7 +172,7 @@ Each item gets three tags and nothing else: type, color, and whether it has a na
 - It opens the phone's photo picker for one photo.
 - **Crop by hand.** The photo appears with a square crop box. The browser runs the same backdrop trim first to place the box; since most of these photos aren't on the backdrop, the box usually starts as the largest square around the middle. The person drags the box to move it and pinches, or drags a corner, to resize it. *Reset* puts it back where it started. The help line suggests cropping out any written name.
 - The same three tags sit underneath. Nothing is pre-selected; *Add to the grid* is enabled once a type and a color are picked.
-- After saving, a bar says "Added to the grid" with *Undo*, which lasts until the person leaves the screen, and *Add another* picks the next photo.
+- After saving, a bar says "Added to the grid" with *Undo*, which lasts until the person picks the next photo or leaves the screen, and *Add another* picks the next photo.
 
 **For both:**
 
@@ -342,7 +342,7 @@ The bucket, "miraloma-pta-lost-and-found":
    - Create the Vercel project, add the GitHub repository secrets and the R2 credentials, and add the DNS record for lostandfound.miralomasf.com.
    - Set up a photo spot by the bin with good light and a plain backdrop (open question 11).
    - Pick the first school code and put it on a sign at the bin. Give the admin code to the admins only.
-2. **Phase 1: MVP.** **Built Nov 21, 2026, in pull requests 1 to 7. The pilot is next.**
+2. **Phase 1: MVP.** **Everything but the pilot was built by Nov 21, 2026.**
    - The school code, the admin code and remembered phones.
    - The grid, the item page, claiming and fixing tags.
    - *My items*.

@@ -14,8 +14,6 @@ const figtree = Figtree({ variable: "--font-figtree", subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "Lost & Found · Miraloma PTA",
   description: "Look through Miraloma's lost-and-found bin from home, and claim what's yours.",
-  // The school code keeps strangers out; this keeps the code screen and the help page out of search results too.
-  robots: { index: false, follow: false },
 };
 
 export const viewport: Viewport = { width: "device-width", initialScale: 1, themeColor: "#ffffff" };

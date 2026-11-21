@@ -14,7 +14,7 @@ const SECTIONS = [
   { id: "find", label: "Finding" },
   { id: "add", label: "Adding" },
   { id: "clear-outs", label: "Clear-outs" },
-  { id: "phone", label: "This phone" },
+  { id: "phone", label: "School code" },
   { id: "privacy", label: "Privacy" },
   { id: "admins", label: "For admins" },
 ];
@@ -47,7 +47,7 @@ export default async function HelpPage() {
               <li key={section.id}>
                 <a
                   href={`#${section.id}`}
-                  className="inline-flex h-9 items-center rounded-full border border-field bg-white px-3 text-sm font-bold text-ink no-underline hover:bg-page hover:text-ink"
+                  className="inline-flex h-10 items-center rounded-full border border-field bg-white px-3 text-sm font-bold text-ink no-underline hover:bg-page hover:text-ink"
                 >
                   {section.label}
                 </a>
@@ -57,11 +57,17 @@ export default async function HelpPage() {
         </nav>
       </div>
 
-      {!visitor.canBrowse && (
-        <p className="notice bg-brand-soft text-brand-dark">
-          The school code is in the PTA newsletter and on the sign at the bin. <Link href="/">Enter it here</Link>.
-        </p>
-      )}
+      {!visitor.canBrowse &&
+        (visitor.isOpen ? (
+          <p className="notice bg-brand-soft text-brand-dark">
+            {/* One span: a notice lays out its children side by side. */}
+            <span>
+              The school code is in the PTA newsletter and on the sign at the bin. <Link href="/">Enter it here</Link>.
+            </span>
+          </p>
+        ) : (
+          <p className="notice bg-warn-soft text-warn">The lost and found isn&apos;t open yet. The PTA newsletter will say when it is.</p>
+        ))}
 
       <Section id="find" title="Find what's yours">
         <Bullets>
@@ -80,7 +86,7 @@ export default async function HelpPage() {
             Changed your mind? <strong>Unclaim</strong> in My items puts it back on the grid.
           </li>
           <li>
-            Your first claim asks for a name, like &ldquo;Lee family, Rm 12&rdquo;. Only PTA admins see it. Change it in My items.
+            Your first claim or add asks for a name, like &ldquo;Lee family, Rm 12&rdquo;. Only PTA admins see it. Change it in My items.
           </li>
         </Bullets>
       </Section>
@@ -91,18 +97,20 @@ export default async function HelpPage() {
             Anyone can add something that&apos;s in the bin, and it shows on the grid right away. Tap <strong>Add</strong> at the bottom.
           </li>
           <li>
-            <strong>Bulk add</strong> is for a pile of things: tap the shutter, then the item&apos;s color, and it&apos;s saved. The type stays from the last item. On the plain
-            backdrop at the photo spot, the photo crops itself.
+            <strong>Bulk add</strong> is for a pile of things: tap the shutter, then the item&apos;s type and color. Tapping the color saves it, and the type stays for the next
+            item. On the plain backdrop at the photo spot, the photo crops itself.
           </li>
           <li>
-            <strong>Add one from a photo</strong> is for something you already photographed: pick the photo, crop it, then tap a type and a color.
+            <strong>Add one from a photo</strong> is for something you already photographed: pick the photo, crop it, tap a type and a color, then{" "}
+            <strong>Add to the grid</strong>.
           </li>
           <li>
             Turn name labels away from the camera, or crop them out, since anyone with the school code sees the photos. Turn on <strong>Has a name</strong> instead.
           </li>
           <li>Phones, keys, wallets, glasses and medication go to the office, not here.</li>
           <li>
-            Made a mistake? <strong>Undo</strong> works until you leave the add screen. After that, email {email} to have it removed.
+            Made a mistake? In bulk add, tap the item in the strip at the top and <strong>Undo</strong> it, until you leave bulk add. After adding one from a photo,{" "}
+            <strong>Undo</strong> lasts until you pick the next photo. After that, email {email} to have it removed.
           </li>
           <li>
             Wrong type or color on anything? Open it and tap <strong>Fix tags</strong>. Anyone can, and the change shows right away.
@@ -127,20 +135,24 @@ export default async function HelpPage() {
         <Bullets>
           <li>The school code is in the PTA newsletter and on the sign at the bin. Enter it once, and this phone remembers it. There&apos;s no account or sign-in.</li>
           <li>
-            <strong>My items</strong> lives on this phone. Another phone, or clearing this browser&apos;s data, starts an empty list, but earlier claims still stand.
+            <strong>My items</strong> lives on this phone. Another phone or browser, or clearing this browser&apos;s data, starts an empty list, but earlier claims still
+            stand.
           </li>
-          <li>When the PTA changes the code, every phone asks for the new one and keeps its My items.</li>
+          <li>When the PTA changes the code, this phone asks for the new one once, and keeps its My items.</li>
         </Bullets>
       </Section>
 
-      <Section id="privacy" title="What the app keeps">
+      <Section id="privacy" title="Privacy: what the app keeps">
         <Bullets>
           <li>
-            The name you give, a random ID for this phone (kept in a cookie), the photos, and who added, retagged and claimed what. No email addresses, and the app sends no
-            email.
+            The name you give, a random ID for this phone (kept in a cookie), when it was last used and whether it&apos;s an admin&apos;s, the photos, and who added, retagged
+            and claimed what. No email addresses, and the app sends no email.
           </li>
-          <li>Anyone with the school code sees the photos and their tags. Only PTA admins see names.</li>
-          <li>Each clear-out deletes the photos of everything that left the list. A phone not used for a year is forgotten.</li>
+          <li>Anyone with the school code sees the photos and their tags, including any name a photo shows. Only PTA admins see the names people give the app.</li>
+          <li>
+            Each clear-out deletes the photos of everything that left the list, and the files of phones not used in a year. Records of past clear-outs keep the names people
+            gave, and only admins can see them.
+          </li>
         </Bullets>
       </Section>
 
@@ -205,8 +217,8 @@ export default async function HelpPage() {
         <Part title="Settings" href="/admin/settings">
           <ul className="flex list-disc flex-col gap-1.5 pl-5">
             <li>
-              <strong>School code.</strong> Change it at the start of the year, or if it spreads beyond the school, then update the sign at the bin. Every phone asks for the new
-              one.
+              <strong>School code.</strong> Change it at the start of the year, or if it spreads beyond the school, then update the sign at the bin. Every family phone asks for
+              the new one.
             </li>
             <li>
               <strong>Admin code.</strong> Shown so you can pass it on. To take access away, change it and give the new one to the admins who should keep it. Every other admin

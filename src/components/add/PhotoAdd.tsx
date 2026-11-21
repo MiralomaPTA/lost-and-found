@@ -242,7 +242,7 @@ export function PhotoAdd({ types, colors, contactEmail }: { types: string[]; col
         {!ready && !saving && !added && picked && <p className="text-center text-xs text-muted">Pick a type and a color first.</p>}
         <p className="text-center text-xs text-muted">Only add things that are in the lost-and-found bin.</p>
         <p className="text-center text-xs text-muted">
-          After you leave this screen, email <a href={`mailto:${contactEmail}`}>{contactEmail}</a> to have an item removed.
+          Once an item&apos;s Undo has gone, email <a href={`mailto:${contactEmail}`}>{contactEmail}</a> to have it removed.
         </p>
       </section>
 

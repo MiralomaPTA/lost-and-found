@@ -18,12 +18,20 @@ const nextConfig: NextConfig = {
       headers: [
         // No other site may show these pages in a frame, so nobody can trick
         // a tap on This is mine or Clear out through an invisible one.
-        { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
         { key: "X-Frame-Options", value: "DENY" },
         { key: "X-Content-Type-Options", value: "nosniff" },
         // Bulk add uses the camera on this site's own pages, and nothing else.
         { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
+        // Out of search results: pages, photos and CSVs alike. robots.txt lets
+        // crawlers in so they can see this.
+        { key: "X-Robots-Tag", value: "noindex, nofollow" },
       ],
+    },
+    {
+      // Not photos: their route sends a stricter policy of its own, which
+      // a header from here would replace.
+      source: "/:path((?!photos/).*)",
+      headers: [{ key: "Content-Security-Policy", value: "frame-ancestors 'none'" }],
     },
   ],
   turbopack: {

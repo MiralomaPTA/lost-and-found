@@ -66,7 +66,9 @@ Once Phase 0 is done and `main` is deployed:
 
 1. **Settings.** On the admin phone, check *Where the bin is* (it starts as "by the main office"), and the types and colors lists.
 2. **Try it on two phones.** Add an item with each add screen, claim one from another phone, unclaim it, mark one *It wasn't there*, then remove and restore one from the admin section.
-3. **Start with an empty list.** On the *Clear out* tab, run a clear-out to clear the test items and their photos. If nothing is due that week it counts as an extra one, and the second-Friday date stays on the calendar. Until a first clear-out runs, a passed date counts from the oldest item still in the bin, so leftover test items can make families see "Any day now".
+3. **Start with an empty list.** On the *Clear out* tab, run a clear-out to clear the test items and their photos. Until a first clear-out runs, a passed date counts from the oldest item still in the bin, so leftover test items can make families see "Any day now".
+   - Run it outside the 7 days before a second Friday, so the tab says it's an extra one and the second-Friday date stays on the calendar.
+   - In those 7 days it counts as that Friday's clear-out, and the tab won't offer another until the day after, so the real one that Friday would find no button.
 4. **Photograph the bin** in one sitting with *Bulk add*, at the photo spot.
 5. **Put the school code on the sign at the bin**, then send the link and the code to one grade for two weeks before the whole-school newsletter.
 
