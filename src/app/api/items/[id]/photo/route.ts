@@ -22,7 +22,7 @@ const MAX_BODY = PHOTO_MAX_BYTES + THUMB_MAX_BYTES + 100_000;
 export async function POST(request: NextRequest, context: RouteContext<"/api/items/[id]/photo">) {
   if (!fromThisSite(request)) return answer(403, { ok: false, message: "This can only be sent from the lost-and-found site." });
   const admin = await currentAdmin();
-  if (!admin) return answer(401, { ok: false, message: "This phone isn't an admin any more. Enter the admin code again." });
+  if (!admin) return answer(401, { ok: false, message: "This phone can't open this. Tap Enter a new code at the bottom of any page." });
   const { id } = await context.params;
   if (!ITEM_ID.test(id)) return answer(404, { ok: false, message: "This item isn't on the list any more." });
 

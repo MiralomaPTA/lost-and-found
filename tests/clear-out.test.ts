@@ -517,7 +517,8 @@ describe("the actions and downloads", () => {
     h.deps.current = t;
     const changed = await changeSchoolCode(t.deps, "otters");
     if (!changed.ok) throw new Error(changed.error);
-    await becomeAdmin(t.deps, ADMIN, changed.settings, "Dana K.");
+    await becomeAdmin(t.deps, ADMIN, changed.settings);
+    await setDeviceName(t.deps, ADMIN, "Dana K.");
     await changeItems(t.deps, (file) => {
       Object.assign(file, bin());
       return { value: file, result: null };

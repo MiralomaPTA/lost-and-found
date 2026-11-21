@@ -16,17 +16,19 @@ const SECTIONS = [
   { id: "clear-outs", label: "Clear-outs" },
   { id: "phone", label: "School code" },
   { id: "privacy", label: "Privacy" },
-  { id: "admins", label: "For admins" },
 ];
+const ADMIN_SECTION = { id: "admins", label: "For admins" };
 
 /**
- * The help page (spec, *Screens*): how it works, for everyone and for
- * admins, and the address for questions. It needs no school code, so a
- * phone on the code screen can follow the footer's link here. Where the bin
- * is and the next clear-out date show only on phones that are in.
+ * The help page (spec, *Screens*): how it works, and the address for
+ * questions. It needs no school code, so a phone on the code screen can
+ * follow the footer's link here. Where the bin is and the next clear-out date
+ * show only on phones that are in. The part for admins shows only on admin
+ * phones: the app never mentions admins to families.
  */
 export default async function HelpPage() {
   const visitor = await getVisitor();
+  const sections = visitor.isAdmin ? [...SECTIONS, ADMIN_SECTION] : SECTIONS;
   const file = visitor.canBrowse ? await getItemsFile() : null;
   const clearOut = file ? nextClearOutFor(visitor.settings, file, (await getDeps()).now()) : null;
   const bin = visitor.canBrowse ? `the lost-and-found bin ${visitor.settings.bin_description}` : "the lost-and-found bin";
@@ -43,7 +45,7 @@ export default async function HelpPage() {
         </div>
         <nav aria-label="On this page">
           <ul className="flex flex-wrap gap-1.5">
-            {SECTIONS.map((section) => (
+            {sections.map((section) => (
               <li key={section.id}>
                 <a
                   href={`#${section.id}`}
@@ -83,13 +85,13 @@ export default async function HelpPage() {
             Recognize a friend&apos;s things? Open the item and tap <strong>Send to a friend</strong> to send them the photo and a link to it.
           </li>
           <li>
-            Not in the bin when you looked? Tap <strong>It wasn&apos;t there</strong> in My items. It comes off the list, and an admin puts it back if it turns up.
+            Not in the bin when you looked? Tap <strong>It wasn&apos;t there</strong> in My items. It comes off the list, and the PTA puts it back if it turns up.
           </li>
           <li>
             Changed your mind? <strong>Unclaim</strong> in My items puts it back on the grid.
           </li>
           <li>
-            Your first claim or add asks for a name, like &ldquo;Lee family, Rm 12&rdquo;. Only PTA admins see it. Change it in My items.
+            Your first claim or add asks for a name, like &ldquo;Lee family, Rm 12&rdquo;. Only the PTA sees it. Change it in My items.
           </li>
         </Bullets>
       </Section>
@@ -148,13 +150,13 @@ export default async function HelpPage() {
       <Section id="privacy" title="Privacy: what the app keeps">
         <Bullets>
           <li>
-            The name you give, a random ID for this phone (kept in a cookie), when it was last used and whether it&apos;s an admin&apos;s, the photos, and who added, retagged
+            The name you give, a random ID for this phone (kept in a cookie), when it was last used, the photos, and who added, retagged
             and claimed what. No email addresses, and the app sends no email.
           </li>
-          <li>Anyone with the school code sees the photos and their tags, including any name a photo shows. Only PTA admins see the names people give the app.</li>
+          <li>Anyone with the school code sees the photos and their tags, including any name a photo shows. Only the PTA sees the names people give the app.</li>
           <li>
             Each clear-out deletes the photos of everything that left the list, and the files of phones not used in a year. Records of past clear-outs keep the names people
-            gave, and only admins can see them.
+            gave, and only the PTA can see them.
           </li>
         </Bullets>
       </Section>
@@ -163,84 +165,88 @@ export default async function HelpPage() {
         <h2 id="h-questions" className="text-[17px] font-extrabold">
           Questions or concerns?
         </h2>
-        <p className="text-[15px] leading-relaxed text-body">Email {email}. PTA admins read it.</p>
+        <p className="text-[15px] leading-relaxed text-body">Email {email}. The PTA reads it.</p>
       </section>
 
-      <section id="admins" aria-labelledby="h-admins" className="card flex scroll-mt-4 flex-col gap-4 p-4">
-        <div className="flex flex-col gap-1.5">
-          <span className="admin-badge self-start">PTA admins</span>
-          <h2 id="h-admins" className="text-[22px] leading-tight font-extrabold">
-            For admins
-          </h2>
-        </div>
-
-        <Part title="Becoming an admin">
-          <p>
-            {visitor.isAdmin ? (
-              <>This phone is an admin. </>
-            ) : (
-              <>
-                Tap <Link href="/admin-code">Enter a new code</Link> at the bottom of any page and type the admin code.{" "}
-              </>
-            )}
-            The admin code isn&apos;t the school code, and another admin can give it to you from Settings. A phone stays an admin until someone changes the admin code.{" "}
-            <strong>Leave admin</strong> on Settings makes it an ordinary phone again.
-          </p>
-        </Part>
-
-        <Part title="Items" href="/admin/items">
-          <p>
-            Everything since the last clear-out, by status, with its number and who added it. Tap one to fix its tags, <strong>Replace photo</strong> or <strong>Remove</strong> it
-            with a reason. A removed item can be restored until the next clear-out.
-          </p>
-        </Part>
-
-        <Part title="Claims" href="/admin/claims">
-          <p>
-            <strong>Reported missing</strong>, at the top, lists what families marked It wasn&apos;t there. If one turns up in the bin, <strong>Restore</strong> it. Below are recent
-            claims, with the family&apos;s name and a phone code that tells two phones with the same name apart. <strong>Undo claim</strong> puts an item back on the grid, with an
-            optional note the family sees.
-          </p>
-          <p>
-            Removing an item, replacing a photo and undoing a claim each offer <strong>Undo</strong> for a few seconds.
-          </p>
-        </Part>
-
-        <Part title="Clear out" href="/admin/clear-out">
-          <p>
-            On the second Friday, volunteers bag up everything in the bin and donate it. Then an admin taps <strong>Clear out</strong>. What&apos;s still on the list is marked
-            donated, open claims close as picked up, every photo is deleted, and a new list starts. There&apos;s no undo, so tap it only once the bin is empty.
-          </p>
-          <p>
-            Nothing happens on its own. Until someone taps it, families see &ldquo;Any day now&rdquo; and admins see a warning. <strong>Move</strong> or <strong>Skip</strong> a date
-            when school is closed that Friday, and <strong>Put back</strong> undoes either. Each past clear-out has a CSV of what it closed.
-          </p>
-        </Part>
-
-        <Part title="Settings" href="/admin/settings">
-          <ul className="flex list-disc flex-col gap-1.5 pl-5">
-            <li>
-              <strong>School code.</strong> Change it at the start of the year, or if it spreads beyond the school, then update the sign at the bin. Every family phone asks for
-              the new one.
-            </li>
-            <li>
-              <strong>Admin code.</strong> Shown so you can pass it on. To take access away, change it and give the new one to the admins who should keep it. Every other admin
-              phone becomes an ordinary phone within a few seconds.
-            </li>
-            <li>
-              <strong>Types and colors.</strong> Renaming one renames it on the items too. Hiding one stops it being offered, and items that have it keep it.
-            </li>
-            <li>
-              <strong>Current list (CSV)</strong> opens in a spreadsheet, with who added and claimed each item.
-            </li>
-          </ul>
-        </Part>
-
-        <p className="text-sm leading-relaxed text-muted">Every change is logged with the phone that made it.</p>
-      </section>
+      {/* Only on admin phones: families never see admins mentioned. */}
+      {visitor.isAdmin && <AdminHelp />}
 
       {file && <BottomNav openClaims={openClaimCount(file, visitor.phoneId)} />}
     </div>
+  );
+}
+/** The part for admins, shown only on admin phones. */
+function AdminHelp() {
+  return (
+    <section id="admins" aria-labelledby="h-admins" className="card flex scroll-mt-4 flex-col gap-4 p-4">
+      <div className="flex flex-col gap-1.5">
+        <span className="role-badge self-start">PTA admins</span>
+        <h2 id="h-admins" className="text-[22px] leading-tight font-extrabold">
+          For admins
+        </h2>
+      </div>
+
+      <Part title="Admin phones">
+        <p>
+          This phone is an admin. To make another phone one, give its owner the admin code from Settings. They tap{" "}
+          <Link href="/code">Enter a new code</Link> at the bottom of any page and type it in the code box, which takes either code. The app never mentions admins
+          to families, and the code box doesn&apos;t say it takes a second code.
+        </p>
+        <p>
+          A phone stays an admin until someone changes the admin code. <strong>Leave admin</strong> on Settings makes it an ordinary phone again.
+        </p>
+      </Part>
+
+      <Part title="Items" href="/admin/items">
+        <p>
+          Everything since the last clear-out, by status, with its number and who added it. Tap one to fix its tags, <strong>Replace photo</strong> or <strong>Remove</strong> it
+          with a reason. A removed item can be restored until the next clear-out.
+        </p>
+      </Part>
+
+      <Part title="Claims" href="/admin/claims">
+        <p>
+          <strong>Reported missing</strong>, at the top, lists what families marked It wasn&apos;t there. If one turns up in the bin, <strong>Restore</strong> it. Below are recent
+          claims, with the family&apos;s name and a phone code that tells two phones with the same name apart. <strong>Undo claim</strong> puts an item back on the grid, with an
+          optional note the family sees.
+        </p>
+        <p>
+          Removing an item, replacing a photo and undoing a claim each offer <strong>Undo</strong> for a few seconds.
+        </p>
+      </Part>
+
+      <Part title="Clear out" href="/admin/clear-out">
+        <p>
+          On the second Friday, volunteers bag up everything in the bin and donate it. Then an admin taps <strong>Clear out</strong>. What&apos;s still on the list is marked
+          donated, open claims close as picked up, every photo is deleted, and a new list starts. There&apos;s no undo, so tap it only once the bin is empty.
+        </p>
+        <p>
+          Nothing happens on its own. Until someone taps it, families see &ldquo;Any day now&rdquo; and admins see a warning. <strong>Move</strong> or <strong>Skip</strong> a date
+          when school is closed that Friday, and <strong>Put back</strong> undoes either. Each past clear-out has a CSV of what it closed.
+        </p>
+      </Part>
+
+      <Part title="Settings" href="/admin/settings">
+        <ul className="flex list-disc flex-col gap-1.5 pl-5">
+          <li>
+            <strong>School code.</strong> Change it at the start of the year, or if it spreads beyond the school, then update the sign at the bin. Every family phone asks for
+            the new one.
+          </li>
+          <li>
+            <strong>Admin code.</strong> Shown so you can pass it on. To take access away, change it and give the new one to the admins who should keep it. Every other admin
+            phone becomes an ordinary phone within a few seconds.
+          </li>
+          <li>
+            <strong>Types and colors.</strong> Renaming one renames it on the items too. Hiding one stops it being offered, and items that have it keep it.
+          </li>
+          <li>
+            <strong>Current list (CSV)</strong> opens in a spreadsheet, with who added and claimed each item.
+          </li>
+        </ul>
+      </Part>
+
+      <p className="text-sm leading-relaxed text-muted">Every change is logged with the phone that made it.</p>
+    </section>
   );
 }
 

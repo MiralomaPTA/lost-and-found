@@ -214,7 +214,8 @@ describe("admin actions and the photo route", () => {
     h.deps.current = t;
     const changed = await changeSchoolCode(t.deps, "otters");
     if (!changed.ok) throw new Error(changed.error);
-    await becomeAdmin(t.deps, ADMIN, changed.settings, "Dana K.");
+    await becomeAdmin(t.deps, ADMIN, changed.settings);
+    await setDeviceName(t.deps, ADMIN, "Dana K.");
     await changeItems(t.deps, (file) => {
       const fresh = claimed();
       Object.assign(file, fresh);
@@ -295,7 +296,8 @@ describe("the photo route when the list keeps changing", () => {
     h.deps.current = t;
     const changed = await changeSchoolCode(t.deps, "otters");
     if (!changed.ok) throw new Error(changed.error);
-    await becomeAdmin(t.deps, ADMIN, changed.settings, "Dana K.");
+    await becomeAdmin(t.deps, ADMIN, changed.settings);
+    await setDeviceName(t.deps, ADMIN, "Dana K.");
     await changeItems(t.deps, (file) => {
       Object.assign(file, bin(1));
       return { value: file, result: null };

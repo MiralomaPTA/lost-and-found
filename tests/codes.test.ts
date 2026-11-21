@@ -130,14 +130,16 @@ describe("phones", () => {
     const settings = await loadSettings(deps);
     const dana = newPhoneId();
     const lin = newPhoneId();
-    await becomeAdmin(deps, dana, settings, "Dana K.");
-    await becomeAdmin(deps, lin, settings, "Lin M.");
+    await becomeAdmin(deps, dana, settings);
+    await setDeviceName(deps, dana, "Dana K.");
+    await becomeAdmin(deps, lin, settings);
+    await setDeviceName(deps, lin, "Lin M.");
     expect(isAdminDevice(settings, await getDevice(deps, dana))).toBe(true);
 
     // Same clock: the version still has to change.
     const changed = expectOk(await changeAdminCode(deps, "cedar heron bridge"));
     expect(changed.admin_code_changed_at).not.toBe(settings.admin_code_changed_at);
-    await becomeAdmin(deps, dana, changed, null);
+    await becomeAdmin(deps, dana, changed);
     expect(isAdminDevice(changed, await getDevice(deps, dana))).toBe(true);
     expect(isAdminDevice(changed, await getDevice(deps, lin))).toBe(false);
     expect((await getDevice(deps, lin))?.name).toBe("Lin M.");
@@ -152,7 +154,8 @@ describe("phones", () => {
     const { deps } = testDeps();
     const settings = await loadSettings(deps);
     const phone = newPhoneId();
-    await becomeAdmin(deps, phone, settings, "Dana K.");
+    await becomeAdmin(deps, phone, settings);
+    await setDeviceName(deps, phone, "Dana K.");
     const after = await leaveAdmin(deps, phone);
     expect(isAdminDevice(settings, after)).toBe(false);
     expect(after.name).toBe("Dana K.");

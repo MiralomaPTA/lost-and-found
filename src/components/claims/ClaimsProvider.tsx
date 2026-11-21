@@ -7,7 +7,7 @@ import { countOpenClaims, type CardState } from "@/components/claims/claim-state
 /**
  * Claiming from the grid and the item page (spec section 2): one tap, no
  * confirmation, and *Undo* right on the card. The first claim from a phone
- * asks for the name admins will see, in a sheet, then claims.
+ * asks for the name the PTA will see, in a sheet, then claims.
  */
 
 export interface ClaimTarget {
@@ -227,7 +227,7 @@ export function ClaimsProvider({
   );
 }
 
-/** "What name should PTA admins see?", before a phone's first claim. */
+/** "What name should the PTA see?", before a phone's first claim. */
 function NameSheet({
   target,
   onClose,
@@ -286,10 +286,10 @@ function NameSheet({
           </div>
           <div className="flex flex-col gap-1.5">
             <h2 id="name-sheet-title" className="text-[21px] leading-tight font-extrabold">
-              What name should PTA admins see?
+              What name should the PTA see?
             </h2>
             <p className="text-sm leading-relaxed text-muted">
-              Admins see it next to your claims and anything you add, in case of a mix-up. Other families don&apos;t. We only ask once.
+              The PTA sees it next to your claims and anything you add, in case of a mix-up. Other families don&apos;t. We only ask once.
             </p>
           </div>
           <div className="flex flex-col gap-2">

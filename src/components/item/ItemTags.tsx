@@ -250,7 +250,7 @@ function FixTagsSheet({
             <h2 id="fix-tags-title" className="text-xl font-extrabold">
               Fix tags
             </h2>
-            <p className="text-[13px] leading-snug text-muted">Anyone can fix tags, and everyone sees the change right away. Only a PTA admin can change the photo.</p>
+            <p className="text-[13px] leading-snug text-muted">Anyone can fix tags, and everyone sees the change right away. Only the PTA can change the photo.</p>
           </div>
           <TagPicker
             types={types}

@@ -75,8 +75,11 @@ beforeEach(async () => {
   await changeSchoolCode(t.deps, "otters");
 });
 
-async function becomeAdminViaForm(name = "Dana K.") {
-  return redirectOf(submit(enterCodeAction, { code: "maple otter river", name, want: "admin" }));
+/** The admin code in the one code box, then the name Settings asks for. Returns where the code box went. */
+async function becomeAdminViaForm(name: string | null = "Dana K.") {
+  const to = await redirectOf(submit(enterCodeAction, { code: "maple otter river" }));
+  if (name) await redirectOf(submit(saveNameAction, { name, next: "/admin/settings" }));
+  return to;
 }
 
 describe("the code box", () => {
@@ -115,17 +118,23 @@ describe("the code box", () => {
     expect(await redirectOf(submit(enterCodeAction, { code: "otters" }))).toBe("/");
   });
 
-  it("takes the school code in the admin box too, without counting it as wrong, and goes home", async () => {
-    expect((await submit(enterCodeAction, { code: "wrong", want: "admin" })).error).toMatch(/isn't the admin code/);
+  it("takes the school code again from a phone that's already in (Enter a new code), and goes home", async () => {
+    await redirectOf(submit(enterCodeAction, { code: "otters" }));
+    expect((await submit(enterCodeAction, { code: "wrong" })).error).toMatch(/doesn't match/);
     expect(h.jar.get(TRIES_COOKIE)).toBe("1.0");
-    expect(await redirectOf(submit(enterCodeAction, { code: "otters", want: "admin", name: "Lee family", next: "/admin/settings" }))).toBe("/");
+    expect(await redirectOf(submit(enterCodeAction, { code: "otters" }))).toBe("/");
     const visitor = await getVisitor();
     expect(visitor.canBrowse).toBe(true);
     expect(visitor.isAdmin).toBe(false);
     expect(h.jar.get(TRIES_COOKIE)).toBeUndefined();
   });
 
-  it("makes a phone an admin with the admin code and a name", async () => {
+  it("never mentions admins in its answers", async () => {
+    const state = await submit(enterCodeAction, { code: "wrong" });
+    expect(state.error).not.toMatch(/admin/i);
+  });
+
+  it("makes a phone an admin with the admin code, and Settings takes its name", async () => {
     expect(await becomeAdminViaForm()).toBe("/admin/settings");
     const visitor = await getVisitor();
     expect(visitor.isAdmin).toBe(true);
@@ -135,9 +144,11 @@ describe("the code box", () => {
     expect(h.jar.get(CODE_COOKIE)).toBeDefined();
   });
 
-  it("asks a phone with no name for one after the admin code", async () => {
-    expect(await redirectOf(submit(enterCodeAction, { code: "maple otter river" }))).toBe("/admin-code");
+  it("sends a phone with no name to Settings after the admin code, and a named one to where it was going", async () => {
+    expect(await redirectOf(submit(enterCodeAction, { code: "maple otter river", next: "/items/L-0001" }))).toBe("/admin/settings");
     expect((await getVisitor()).isAdmin).toBe(true);
+    await redirectOf(submit(saveNameAction, { name: "Dana K." }));
+    expect(await redirectOf(submit(enterCodeAction, { code: "maple otter river", next: "/items/L-0001" }))).toBe("/items/L-0001");
   });
 
   it("never grants the admin code to a phone ID it didn't record", async () => {

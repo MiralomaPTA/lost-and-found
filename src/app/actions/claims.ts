@@ -77,7 +77,7 @@ export async function claimAction(itemId: unknown, name?: unknown): Promise<Clai
 
 const MESSAGES: Record<Exclude<ClaimChange, { ok: true }>["reason"], string> = {
   gone: GONE,
-  ended: "This claim was already closed, maybe by a PTA admin. Reload to see where it stands.",
+  ended: "This claim was already closed, maybe by the PTA. Reload to see where it stands.",
   changed: "This item has changed since, so it can't be undone here.",
   taken: "Someone else has claimed it since.",
 };

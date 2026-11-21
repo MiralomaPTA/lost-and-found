@@ -4,6 +4,7 @@ import { leaveAdminAction } from "@/app/actions/codes";
 import { BinDescriptionForm } from "@/components/admin/BinDescriptionForm";
 import { TagListEditor, type TagEntry } from "@/components/admin/TagListEditor";
 import { CodeSettingForm } from "@/components/CodeSettingForm";
+import { NameForm } from "@/components/NameForm";
 import { shortDate } from "@/lib/dates";
 import { getDeps } from "@/server/deps";
 import { loadItems } from "@/server/items";
@@ -28,6 +29,9 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-4">
       <h1 className="text-[26px] leading-tight font-extrabold">Settings</h1>
+
+      {/* Where the admin code lands a phone; one with no name yet is asked for it first. */}
+      {!admin.device.name && <NameForm next="/admin/settings" placeholder="e.g. Dana K." hint="This phone doesn't have a name yet. Other admins see it next to what you do." />}
 
       {!settings.school_code && (
         <p role="status" className="notice bg-warn-soft text-warn">
