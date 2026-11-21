@@ -33,7 +33,7 @@ export function CodeForm({ next }: { next?: string }) {
           aria-invalid={state.error ? true : undefined}
         />
         <p id="code-hint" className="hint">
-          It&apos;s in the PTA newsletter and on the sign at the bin.
+          It&apos;s in the Dragon Digest and on the sign at the bin.
         </p>
       </div>
       {state.error && (

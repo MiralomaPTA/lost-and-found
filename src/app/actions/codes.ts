@@ -57,7 +57,7 @@ export async function enterCodeAction(prev: FormState, formData: FormData): Prom
     const next = recordWrongCode(tries, nowMs);
     await writeTries(next);
     if (isLocked(next, nowMs)) return { error: LOCKED, attempt, values };
-    return { error: "That code doesn't match. It's in the PTA newsletter and on the sign at the bin.", attempt, values };
+    return { error: "That code doesn't match. It's in the Dragon Digest and on the sign at the bin.", attempt, values };
   }
 
   await clearTries();

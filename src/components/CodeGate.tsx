@@ -27,7 +27,7 @@ export function CodeGate({ isOpen, next }: { isOpen: boolean; next?: string }) {
       {isOpen && <CurrentTotalsTiles />}
       {!isOpen && (
         <p role="status" className="notice bg-warn-soft text-warn">
-          The lost and found isn&apos;t open yet. The PTA newsletter will say when it is.
+          The lost and found isn&apos;t open yet. The Dragon Digest will say when it is.
         </p>
       )}
       <ol className="flex flex-col gap-3">
@@ -39,7 +39,6 @@ export function CodeGate({ isOpen, next }: { isOpen: boolean; next?: string }) {
         ))}
       </ol>
       <CodeForm next={next} />
-      <p className="text-center text-[13px] text-muted">No account or sign-in. This phone remembers the code.</p>
     </div>
   );
 }

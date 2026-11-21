@@ -64,11 +64,11 @@ export default async function HelpPage() {
           <p className="notice bg-brand-soft text-brand-dark">
             {/* One span: a notice lays out its children side by side. */}
             <span>
-              The school code is in the PTA newsletter and on the sign at the bin. <Link href="/">Enter it here</Link>.
+              The school code is in the Dragon Digest and on the sign at the bin. <Link href="/">Enter it here</Link>.
             </span>
           </p>
         ) : (
-          <p className="notice bg-warn-soft text-warn">The lost and found isn&apos;t open yet. The PTA newsletter will say when it is.</p>
+          <p className="notice bg-warn-soft text-warn">The lost and found isn&apos;t open yet. The Dragon Digest will say when it is.</p>
         ))}
 
       <Section id="find" title="Find what's yours">
@@ -138,7 +138,7 @@ export default async function HelpPage() {
 
       <Section id="phone" title="The school code and this phone">
         <Bullets>
-          <li>The school code is in the PTA newsletter and on the sign at the bin. Enter it once, and this phone remembers it. There&apos;s no account or sign-in.</li>
+          <li>The school code is in the Dragon Digest and on the sign at the bin. Enter it once, and this phone remembers it. There&apos;s no account or sign-in.</li>
           <li>
             <strong>My items</strong> lives on this phone. Another phone or browser, or clearing this browser&apos;s data, starts an empty list, but earlier claims still
             stand.
