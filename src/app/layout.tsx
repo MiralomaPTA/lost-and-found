@@ -30,7 +30,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Brand />
             <div className="flex items-center gap-3">
               {visitor.isAdmin && (
-                <Link href="/admin/items" className="admin-badge no-underline hover:text-ink">
+                <Link href="/admin/items" className="role-badge no-underline hover:text-ink">
                   Admin
                 </Link>
               )}

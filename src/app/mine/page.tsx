@@ -14,7 +14,7 @@ import { myItemsView, nextClearOutFor } from "@/server/views";
 
 export const metadata: Metadata = { title: "My items · Lost & Found" };
 
-/** The claims made from this phone, and the name admins see (spec section 3). */
+/** The claims made from this phone, and the name the PTA sees (spec section 3). */
 export default async function MinePage() {
   const visitor = await getVisitor();
   if (!visitor.canBrowse || !visitor.phoneId) return <CodeGate isOpen={visitor.isOpen} next="/mine" />;

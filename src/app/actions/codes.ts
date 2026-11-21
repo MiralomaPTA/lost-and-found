@@ -73,18 +73,17 @@ export async function enterCodeAction(prev: FormState, formData: FormData): Prom
   await rememberSchoolCode(phoneId, settings);
   let named: boolean;
   try {
-    const device = await becomeAdmin(deps, phoneId, settings, null);
-    named = Boolean(device.name);
+    named = Boolean((await becomeAdmin(deps, phoneId, settings)).name);
   } catch (error) {
     if (error instanceof ConflictError) return { error: BUSY, attempt, values };
     throw error;
   }
   await logActivity(deps, { actor: phoneId, as_admin: true, action: "admin_code_entered" });
   // A phone with no name yet goes to Settings, which asks for one first.
-  redirect(named ? (next ?? "/admin/settings") : "/admin/settings");
+  redirect((named && next) || "/admin/settings");
 }
 
-/** The name admins see next to this phone's claims, adds and admin actions. */
+/** The name the PTA sees next to this phone's claims and adds, and other admins see next to its admin actions. */
 export async function saveNameAction(prev: FormState, formData: FormData): Promise<FormState> {
   const attempt = (prev.attempt ?? 0) + 1;
   const visitor = await getVisitor();
@@ -147,7 +146,7 @@ export async function changeAdminCodeAction(prev: FormState, formData: FormData)
     const outcome = await changeAdminCode(deps, code);
     if (!outcome.ok) return { error: outcome.error, attempt, values: { code } };
     // This phone keeps admin with the new code; every other admin phone loses it.
-    await becomeAdmin(deps, admin.phoneId, outcome.settings, null);
+    await becomeAdmin(deps, admin.phoneId, outcome.settings);
     await logActivity(deps, { actor: admin.phoneId, as_admin: true, action: "admin_code_changed" });
     refresh();
     return { ...NO_STATE, saved: "Admin code changed. Give the new code to the admins who should keep access.", attempt };

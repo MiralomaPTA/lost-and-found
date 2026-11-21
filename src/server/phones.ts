@@ -88,13 +88,12 @@ async function updateDevice(deps: Deps, id: string, change: (device: Device) => 
   });
 }
 
-/** Makes the phone an admin for the current admin code, and saves its name if one is given. */
-export async function becomeAdmin(deps: Deps, id: string, settings: Settings, name: string | null): Promise<Device> {
+/** Makes the phone an admin for the current admin code. Its name, if it has none yet, comes from Settings. */
+export async function becomeAdmin(deps: Deps, id: string, settings: Settings): Promise<Device> {
   const version = settings.admin_code_changed_at;
   if (!version) throw new Error("There is no admin code yet.");
   return updateDevice(deps, id, (device) => ({
     ...device,
-    name: name ?? device.name,
     admin_code_at: version,
     last_seen_at: deps.now().toISOString(),
   }));

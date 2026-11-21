@@ -25,6 +25,7 @@ export function CodeForm({ next }: { next?: string }) {
           defaultValue={state.values?.code}
           autoComplete="off"
           autoCapitalize="none"
+          autoCorrect="off"
           spellCheck={false}
           placeholder="Enter the code"
           className="field text-lg font-semibold"
