@@ -62,7 +62,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           )}
           <span>
             Made with{" "}
-            {/* Its own width and a plain space: trimming the emoji's box to 1em left no gap before "by" on iPhones. */}
+            {/* Don't constrain the emoji's width: on iPhones it's wider than 1em and covers the space before "by". */}
             <span role="img" aria-label="love">
               ❤️
             </span>{" "}
