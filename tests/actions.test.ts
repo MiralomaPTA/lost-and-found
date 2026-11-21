@@ -115,11 +115,14 @@ describe("the code box", () => {
     expect(await redirectOf(submit(enterCodeAction, { code: "otters" }))).toBe("/");
   });
 
-  it("refuses the school code in the admin box, and counts it as wrong", async () => {
-    const state = await submit(enterCodeAction, { code: "otters", want: "admin", name: "Lee family" });
-    expect(state.error).toMatch(/That's the school code/);
-    expect(state.values?.name).toBe("Lee family");
+  it("takes the school code in the admin box too, without counting it as wrong, and goes home", async () => {
+    expect((await submit(enterCodeAction, { code: "wrong", want: "admin" })).error).toMatch(/isn't the admin code/);
     expect(h.jar.get(TRIES_COOKIE)).toBe("1.0");
+    expect(await redirectOf(submit(enterCodeAction, { code: "otters", want: "admin", name: "Lee family", next: "/admin/settings" }))).toBe("/");
+    const visitor = await getVisitor();
+    expect(visitor.canBrowse).toBe(true);
+    expect(visitor.isAdmin).toBe(false);
+    expect(h.jar.get(TRIES_COOKIE)).toBeUndefined();
   });
 
   it("makes a phone an admin with the admin code and a name", async () => {

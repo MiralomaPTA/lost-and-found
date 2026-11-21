@@ -38,7 +38,7 @@ export function CodeForm({ mode, askName = false, next }: { mode: "school" | "ad
           aria-invalid={state.error ? true : undefined}
         />
         <p id="code-hint" className="hint">
-          {admin ? "Only PTA admins have this code. It isn't the school code." : "It's in the PTA newsletter and on the sign at the bin. PTA admins can type the admin code here instead."}
+          {admin ? "Only PTA admins have this code. It isn't the school code." : "It's in the PTA newsletter and on the sign at the bin."}
         </p>
       </div>
       {askName && (

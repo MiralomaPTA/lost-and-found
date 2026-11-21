@@ -57,9 +57,17 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             </span>
           ) : (
             <span>
-              PTA admin? <Link href="/admin-code">Enter the admin code</Link>
+              <Link href="/admin-code">Enter a new code</Link>
             </span>
           )}
+          <span>
+            Made with{" "}
+            {/* Apple's emoji font leaves a space's width of blank to the right of the heart; a 1em box trims it. */}
+            <span role="img" aria-label="love" className="inline-block w-[1em] text-left">
+              ❤️
+            </span>{" "}
+            by <a href="https://www.miralomasf.com/pta">the Miraloma PTA</a>
+          </span>
         </footer>
       </body>
     </html>

@@ -214,7 +214,7 @@ export function BulkAdd({ types, colors, contactEmail }: { types: string[]; colo
         <div role="list" aria-label="Saved since you opened bulk add" className="flex h-[72px] flex-none gap-2.5 overflow-x-auto px-3 pt-0.5 [scrollbar-width:none]">
           {strip.length === 0 && (
             <p className="self-center text-[13px] leading-snug text-[#A9AFBA]">
-              Only add things that are in the lost-and-found bin. What you save shows up here; tap one to fix it or undo it.
+              What you save shows up here; tap one to fix it or undo it.
             </p>
           )}
           {strip.map((entry) => (
