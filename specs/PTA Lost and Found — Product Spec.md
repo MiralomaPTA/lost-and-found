@@ -52,7 +52,7 @@ There are two roles. There is no helper role: anyone with the school code can ad
 
 **Everyone: a school code, no sign-in.**
 
-- The first visit asks for the school code: a short word printed in the newsletter and on a sign at the bin (open question 9). After that the phone is remembered and opens straight to the grid. Admins can type the admin code in the same box (below).
+- The first visit asks for the school code: a short word printed in the Dragon Digest (the school newsletter) and on a sign at the bin (open question 9). After that the phone is remembered and opens straight to the grid. Admins can type the admin code in the same box (below).
 - The phone is remembered by a random ID in a cookie that lasts a year from the phone's last visit (open question 1). Nothing else is stored about the person until they claim or add something.
 - The first claim or the first add asks for a name for the PTA to see next to it ("What name should the PTA see?"), such as "Lee family, Rm 12". The phone remembers it, and it can be changed in *My items*.
 - *My items* belongs to the phone. A different phone, or clearing the browser, starts a new list, and earlier claims still stand.
@@ -352,7 +352,7 @@ The bucket, "miraloma-pta-lost-and-found":
    - Bulk add with the upload queue, and adding one from a photo with the crop box.
    - The admin section: items, claims and reported missing, clear-outs, settings.
    - The help page.
-   - Pilot: volunteers photograph the current bin in one sitting, the link and code go to one grade for two weeks, then to the whole school through the newsletter.
+   - Pilot: volunteers photograph the current bin in one sitting, the link and code go to one grade for two weeks, then to the whole school through the Dragon Digest.
 3. **Phase 2: AI tagging**, once its cost and the sending of photos to Anthropic are agreed.
 4. **Later, if wanted:**
    - *Lost something?* reports that alert the family when a matching item is added.
@@ -411,7 +411,7 @@ Each has a proposed default, and the build follows the default unless it is chan
 6. **Starting types and colors.** Default: the lists under *Storage layout*.
 7. **Where the bin is.** The text shown when claiming. **Answered: "on the lower level near the cafeteria".** Admins change it on Settings; new buckets start with "by the main office".
 8. **Sizing.** Default: about 75 new items a week and 300 on the list at peak. Is that close?
-9. **The school code.** Default: a short word that is easy to type, printed in the newsletter and on a sign at the bin, and changed at the start of each school year.
+9. **The school code.** Default: a short word that is easy to type, printed in the Dragon Digest and on a sign at the bin, and changed at the start of each school year.
 10. **Who creates lostandfound@miralomasf.com and adds the DNS record?**
 11. **Backdrop for the photo spot.** Default: a solid lime-green poster board or mat, a color kids' things rarely come in. Items the same color as the backdrop keep the square photo.
 12. **Bulk add on small phones.** With 11 types and 15 colors, the bulk add screen fills an 844 px-tall phone with no room to spare, and admins can add more of either. Default: the type chips scroll sideways in one row when they don't fit, and the colors list stays at 16 or fewer.
