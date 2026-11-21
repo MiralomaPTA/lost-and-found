@@ -85,4 +85,26 @@ describe("the totals", () => {
     expect(totalsOf(next).claimed).toBe(1);
     expect(foldTotals(next, next.items).claimed.base).toBe(1);
   });
+  it("count a claimed item an admin removed as returned in person, but not other removals", () => {
+    const file = listOf(3);
+    claim(file, "L-0001", "c-0000000001");
+    claim(file, "L-0002", "c-0000000002");
+    expect(removeItem(file, { itemId: "L-0001", adminId: PHONE_C, reason: "returned in person" }, later(1)).ok).toBe(true);
+    expect(removeItem(file, { itemId: "L-0002", adminId: PHONE_C, reason: "gone from the bin" }, later(1)).ok).toBe(true);
+    expect(totalsOf(file)).toEqual({ posted: 3, claimed: 1, donated: 0 });
+    expect(totalsOf(clearOut(file, later(60)).next).claimed).toBe(1);
+  });
+
+  it("don't lose a list cleared out by a server from before totals", () => {
+    const file = listOf(5);
+    const { next } = clearOut(file, later(60));
+    expect(totalsOf(next)).toEqual({ posted: 5, claimed: 0, donated: 5 });
+    // An old server's clear-out: it adds its summary but leaves the totals as they were.
+    next.clear_outs = [...(next.clear_outs ?? []), { date: "2027-01-08", done_at: later(90).toISOString(), done_by_name: "Dana K.", donated: 7, picked_up: 2, removed: 1 }];
+    expect(totalsOf(next)).toEqual({ posted: 15, claimed: 2, donated: 12 });
+    // The next new-server clear-out counts it once, and doesn't add it again.
+    const { next: after } = clearOut(next, later(120));
+    expect(totalsOf(after)).toEqual({ posted: 15, claimed: 2, donated: 12 });
+    expect(after.totals?.clear_outs_counted).toBe(3);
+  });
 });

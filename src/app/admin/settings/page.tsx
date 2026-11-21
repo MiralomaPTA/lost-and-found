@@ -24,7 +24,7 @@ function tagEntries(settings: Settings, kind: ListKind, counts: Map<string, numb
 function totalRows(file: ItemsFile): TotalRowView[] {
   const totals = totalsOf(file);
   const resetAt = totalsResetAt(file);
-  return TOTAL_NAMES.map((name) => ({ name, value: totals[name], since: resetAt[name] ? shortDate(resetAt[name]) : null }));
+  return TOTAL_NAMES.map((name) => ({ name, value: totals[name], since: resetAt[name] }));
 }
 
 /** The admin Settings tab (spec section 6): the codes, where the bin is, the totals, the types and colors, the CSV, and *Leave admin*. */

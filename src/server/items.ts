@@ -115,7 +115,13 @@ export const clearOutSummarySchema = z.looseObject({
  * this list add to it as they go; a clear-out folds them into `base`.
  */
 const totalCounterSchema = z.looseObject({ base: z.number().int().nonnegative(), since: moment.nullable() });
-export const itemsTotalsSchema = z.looseObject({ posted: totalCounterSchema, claimed: totalCounterSchema, donated: totalCounterSchema });
+export const itemsTotalsSchema = z.looseObject({
+  posted: totalCounterSchema,
+  claimed: totalCounterSchema,
+  donated: totalCounterSchema,
+  /** How many of `clear_outs` are in the bases. One run by a server from before totals is added from its summary instead. */
+  clear_outs_counted: z.number().int().nonnegative().optional(),
+});
 
 export const itemsFileSchema = z.looseObject({
   version: z.literal(1),

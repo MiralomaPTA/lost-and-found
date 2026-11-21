@@ -236,7 +236,7 @@ describe("resetting a total", () => {
 
     await becomeAdminViaForm();
     expect((await submit(resetTotalAction, { total: "everything" })).error).toMatch(/Reload/);
-    expect((await submit(resetTotalAction, { total: "posted" })).saved).toBe("Posted is back to 0. It was 3.");
+    expect((await submit(resetTotalAction, { total: "posted" })).saved).toBe("Items posted: back to 0 (it was 3).");
     expect(totalsOf(await loadItems(t.deps, { fresh: true }))).toEqual({ posted: 0, claimed: 0, donated: 0 });
   });
 });

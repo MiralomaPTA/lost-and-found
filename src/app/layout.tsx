@@ -2,12 +2,11 @@ import type { Metadata, Viewport } from "next";
 import { Figtree } from "next/font/google";
 import Link from "next/link";
 import { Brand } from "@/components/Brand";
-import { TotalsLine } from "@/components/Totals";
+import { readTotals, TotalsLine } from "@/components/Totals";
 import { dayLabel } from "@/lib/dates";
 import { config } from "@/server/config";
 import { getDeps } from "@/server/deps";
 import { getItemsFile, getVisitor } from "@/server/session";
-import { totalsOf } from "@/server/totals";
 import { nextClearOutFor } from "@/server/views";
 import "./globals.css";
 
@@ -24,7 +23,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const visitor = await getVisitor();
   const clearOut = visitor.canBrowse ? nextClearOutFor(visitor.settings, await getItemsFile(), (await getDeps()).now()) : null;
   // For every phone once the lost and found is open, the code screen included.
-  const totals = visitor.isOpen ? totalsOf(await getItemsFile()) : null;
+  const totals = visitor.isOpen ? await readTotals() : null;
   return (
     <html lang="en" className={`${figtree.variable} h-full antialiased`}>
       {/* Pages with the bottom bar get room for it, so the footer isn't hidden underneath. */}
