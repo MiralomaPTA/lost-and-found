@@ -4,7 +4,7 @@ A small Next.js app that puts the school's lost-and-found bin online. Anyone wit
 
 Everything the app keeps lives in one Cloudflare R2 bucket: a few JSON files and the photos. The app runs on Vercel, like [reimburse-me](https://github.com/MiralomaPTA/reimburse-me) and [asset-manager](https://github.com/MiralomaPTA/asset-manager), and sends no email.
 
-**Status: Phase 1 in progress.** Done: the school code, the admin code and remembered phones; the grid, the item page, claiming and *My items*. Next: adding items (bulk add and one from a photo).
+**Status: Phase 1 in progress.** Done: the school code, the admin code and remembered phones; the grid, the item page, claiming and *My items*; adding items (bulk add from the live camera, and one from a photo with a crop box). Next: *Fix tags* on the item page, then the admin section.
 
 ## Run it locally
 
@@ -17,7 +17,7 @@ No Cloudflare setup is needed for development. With the default `STORAGE=local`,
 
 The first visit asks for a code. In development with local storage, the admin code is `local admin code` unless `INITIAL_ADMIN_CODE` is set in `.env.local` (with `STORAGE=r2` there is no default, so it can't end up in the real bucket). Type it in the code box, give the phone a name, then set a school code on Settings and try it in a private window. Delete `.data/` to start over.
 
-Until the add screens exist, `npm run seed` fills the local bucket with made-up items (drawn shapes in each item's color) to browse and claim; `npm run seed -- 120` adds 120. It only ever writes to local storage.
+`npm run seed` fills the local bucket with made-up items (drawn shapes in each item's color) to browse and claim; `npm run seed -- 120` adds 120. It only ever writes to local storage. To add real ones, use *Add*: the live camera in bulk add works on `localhost` (browsers allow cameras only there and on HTTPS); from another device on your network, it falls back to the phone's camera app.
 
 ```bash
 npm test             # unit tests (vitest)

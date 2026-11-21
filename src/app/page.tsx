@@ -41,6 +41,9 @@ export default async function Home({ searchParams }: PageProps<"/">) {
         <div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
           <p className="text-base font-bold">The bin is empty right now</p>
           <p className="max-w-sm text-sm text-muted">New things show up here as soon as someone photographs them.</p>
+          <Link href="/add" className="btn-secondary btn-small mt-2">
+            Add something
+          </Link>
         </div>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">

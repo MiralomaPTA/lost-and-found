@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { UploadsBar } from "@/components/add/UploadsBar";
 import { useOptionalClaims } from "@/components/claims/ClaimsProvider";
 
-/**
- * The bottom bar: *All items* and *My items*, with a count of this phone's
- * open claims. (*Add* joins it with the add screens.)
- */
+/** The bottom bar (spec section 1): *All items*, *Add* and *My items*, with a count of this phone's open claims. */
 export function BottomNav({ openClaims }: { openClaims: number }) {
   const pathname = usePathname();
   // On the grid, claims made on the page count straight away.
@@ -19,13 +17,20 @@ export function BottomNav({ openClaims }: { openClaims: number }) {
       data-bottom-nav
       className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-white pb-[env(safe-area-inset-bottom)]"
     >
-      <div className="mx-auto grid max-w-md grid-cols-2">
+      <UploadsBar />
+      <div className="mx-auto grid max-w-md grid-cols-3">
         <Tab href="/" current={pathname === "/"} label="All items">
           <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
             <rect x="4" y="4" width="7" height="7" rx="1.5" />
             <rect x="13" y="4" width="7" height="7" rx="1.5" />
             <rect x="4" y="13" width="7" height="7" rx="1.5" />
             <rect x="13" y="13" width="7" height="7" rx="1.5" />
+          </svg>
+        </Tab>
+        <Tab href="/add" current={pathname.startsWith("/add")} label="Add">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 8h3l2-3h6l2 3h3v11H4z" />
+            <circle cx="12" cy="13" r="3.5" />
           </svg>
         </Tab>
         <Tab href="/mine" current={pathname === "/mine"} label="My items" badge={count > 0 ? count : null}>
