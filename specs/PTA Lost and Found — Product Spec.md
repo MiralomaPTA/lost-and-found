@@ -61,7 +61,7 @@ There are two roles. There is no helper role: anyone with the school code can ad
 
 **Admins: an admin code.** Admins don't sign in or get email. They type a second code that is shared only with admins.
 
-- Typing the admin code in the first-visit code box makes that phone an admin. It also counts as entering the current school code. A phone that's already in uses *Admin code* in the footer.
+- Typing the admin code in the first-visit code box makes that phone an admin. It also counts as entering the current school code. A phone that's already in uses *Enter a new code* in the footer.
 - If the phone has no name yet, it asks for one, so the admin pages and the activity log can say who did what ("Done by Dana").
 - A phone stays an admin until an admin changes the admin code, or until its cookie expires or the browser is cleared. *Leave admin* on Settings turns that phone back into an ordinary one.
 - There is no list of admins and no way to remove a single phone. To take access away, an admin changes the admin code and gives the new one to the admins who should keep it. Every other admin phone becomes an ordinary phone within a few seconds, keeping its name and *My items*.
@@ -107,7 +107,7 @@ stateDiagram-v2
 - **Item page:** the large photo with pinch-zoom, type, color, its age and the date it was added, *This is mine*, and *Fix tags* (section 5). Swipe or arrows move to the next item in the current filter and sort. An item that has been claimed says "This item has been claimed. If it's yours, email the PTA"; one that was cleared out says "This item was donated on Dec 11." Either can be reached from an old link.
 - Thumbnails load as they scroll into view. About 300 items fits on one page.
 - The bottom bar has three tabs: *All items*, *Add* (section 4) and *My items* (section 3).
-- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Admin code*.
+- The footer of every page links to lostandfound@miralomasf.com for questions and concerns (section 8), to *How it works* (the help page) and to *Enter a new code*. That link opens the admin code screen, but the footer doesn't say it's for admins, so it doesn't advertise admin access to families.
 
 ### 2. Claiming
 
@@ -369,7 +369,7 @@ Success measures: the share of items claimed before each clear-out, items donate
 | --- | --- |
 | Roles | Two: everyone with the school code, and admins, who have the admin code. No helper role |
 | Who can browse, claim and add | Anyone with the school code. No sign-in or account; the phone is remembered |
-| Admin access | An admin code shared only with admins, typed in the same box as the school code or from *Admin code* in the footer. A phone stays an admin until the code changes, and changing it is the only way to take access away |
+| Admin access | An admin code shared only with admins, typed in the same box as the school code or from *Enter a new code* in the footer. A phone stays an admin until the code changes, and changing it is the only way to take access away |
 | Users list | None. Each phone has its own small file, which records whether it holds the current admin code |
 | Storage | One Cloudflare R2 bucket: JSON files for the item details and settings, plus the photos. No Sheet or Drive. Safe writes using R2's version check; daily backups; an archive per clear-out |
 | Claims | One tap on the card in the grid, no confirmation, on the honor system, no daily limit. *Undo* on the card, unclaim from *My items*, and admins can undo any claim |
