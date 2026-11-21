@@ -62,8 +62,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           )}
           <span>
             Made with{" "}
-            {/* Apple's emoji font leaves a space's width of blank to the right of the heart; a 1em box trims it. */}
-            <span role="img" aria-label="love" className="inline-block w-[1em] text-left">
+            {/* Don't constrain the emoji's width: on iPhones it's wider than 1em and covers the space before "by". */}
+            <span role="img" aria-label="love">
               ❤️
             </span>{" "}
             by <a href="https://www.miralomasf.com/pta">the Miraloma PTA</a>
