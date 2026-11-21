@@ -114,7 +114,7 @@ stateDiagram-v2
 - **From the grid.** Every card has a *This is mine* button under the photo, so a family can claim without opening the item. Tapping the photo itself opens the item page, which has the same button.
 - **No confirmation step.** The claim takes effect at once, because undoing it is just as quick:
   - The card stays where it is, dimmed, showing "In My items" and an *Undo* button, so the grid doesn't shift under the family's thumb. It leaves the grid the next time the page loads.
-  - A bar at the bottom says where to go: "Pick it up from the lost-and-found bin by the main office." An admin sets the bin's description (open question 7).
+  - A bar at the bottom says where to go: "Pick it up from the lost-and-found bin on the lower level near the cafeteria." An admin sets the bin's description (open question 7).
   - *Undo* puts the item straight back on the list.
 - The first claim or add from a phone also asks for the name admins will see (see *Everyone* above). Later claims and adds don't ask again.
 - A family can also unclaim from *My items* at any time before the clear-out. The item goes back on the grid in its old place, by date added.
@@ -406,7 +406,7 @@ Each has a proposed default, and the build follows the default unless it is chan
 4. **Retention.** Default: each clear-out deletes the photos of everything off the list, and keeps the rest of each row.
 5. **Who gets the admin code.** Admins now do everything helpers used to besides adding. Default: the PTA's lost-and-found leads and the school office staff, so someone on site can undo a claim or restore an item.
 6. **Starting types and colors.** Default: the lists under *Storage layout*.
-7. **Where the bin is.** The text shown when claiming. Default: "by the main office".
+7. **Where the bin is.** The text shown when claiming. **Answered: "on the lower level near the cafeteria".** Admins change it on Settings; new buckets start with "by the main office".
 8. **Sizing.** Default: about 75 new items a week and 300 on the list at peak. Is that close?
 9. **The school code.** Default: a short word that is easy to type, printed in the newsletter and on a sign at the bin, and changed at the start of each school year.
 10. **Who creates lostandfound@miralomasf.com and adds the DNS record?**
