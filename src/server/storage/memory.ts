@@ -2,10 +2,11 @@ import { assertValidKey, assertValidPrefix, type ObjectStore } from "@/server/st
 
 /**
  * The bucket in memory, for tests. Checks and writes happen without an await
- * in between, so conditional writes are atomic like R2's.
+ * in between, so conditional writes are atomic like R2's. `now` stamps each
+ * write, for listings (tests pass their own clock).
  */
-export function memoryObjectStore(): ObjectStore {
-  const objects = new Map<string, { body: Uint8Array; etag: string; contentType?: string }>();
+export function memoryObjectStore({ now = () => new Date() }: { now?: () => Date } = {}): ObjectStore {
+  const objects = new Map<string, { body: Uint8Array; etag: string; contentType?: string; modified: Date }>();
   let version = 0;
   return {
     async get(key) {
@@ -20,7 +21,7 @@ export function memoryObjectStore(): ObjectStore {
       if (condition && "ifMatch" in condition && current?.etag !== condition.ifMatch) return { ok: false, reason: "conflict" };
       if (condition && "ifNoneMatch" in condition && current) return { ok: false, reason: "conflict" };
       const etag = `"m${++version}"`;
-      objects.set(key, { body: body.slice(), etag, contentType: options.contentType });
+      objects.set(key, { body: body.slice(), etag, contentType: options.contentType, modified: now() });
       return { ok: true, etag };
     },
     async delete(key) {
@@ -30,6 +31,10 @@ export function memoryObjectStore(): ObjectStore {
     async list(prefix) {
       assertValidPrefix(prefix);
       return [...objects.keys()].filter((key) => key.startsWith(prefix));
+    },
+    async listObjects(prefix) {
+      assertValidPrefix(prefix);
+      return [...objects.entries()].filter(([key]) => key.startsWith(prefix)).map(([key, object]) => ({ key, modified: object.modified }));
     },
   };
 }

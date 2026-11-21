@@ -14,7 +14,7 @@ import { config } from "@/server/config";
 import { getDeps } from "@/server/deps";
 import { ITEM_ID } from "@/server/items";
 import { getItemsFile, getVisitor } from "@/server/session";
-import { activeColors, activeTypes, archivedItemView, itemLabel, itemPageView, openClaimItemIds, swatchFor } from "@/server/views";
+import { archivedItemView, itemLabel, itemPageView, openClaimItemIds, swatchFor, tagChoices } from "@/server/views";
 
 /**
  * "Navy jacket · Lost & Found". A title per item lets screen readers announce
@@ -100,8 +100,7 @@ export default async function ItemPage({ params, searchParams }: PageProps<"/ite
                   ? { type: view.card.type, color: view.card.color, hasName: view.card.hasName }
                   : { type: view.type, color: view.color, hasName: view.hasName }
               }
-              types={activeTypes(settings)}
-              colors={activeColors(settings)}
+              {...tagChoices(settings, view.kind === "on-list" ? view.card : view)}
               palette={Object.fromEntries(settings.colors.map((c) => [c.name, swatchFor(settings, c.name)]))}
             />
             <dl className="grid grid-cols-2 gap-3">

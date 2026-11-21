@@ -90,20 +90,43 @@ export const itemSchema = z.looseObject({
   previous_photo: z.object({ photo: z.string().regex(PHOTO_NAME), thumb: z.string().regex(PHOTO_NAME), replaced_at: moment }).optional(),
 });
 
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
+/** A random ID for one run of the clear-out, which names its archive until the run finishes. */
+export const CLEAR_OUT_RUN = /^[0-9a-f]{16}$/;
+
+/** One past clear-out, as the *Clear out* tab lists it. */
+export const clearOutSummarySchema = z.looseObject({
+  /** The date it counted for, YYYY-MM-DD. */
+  date: day,
+  done_at: moment,
+  /** The admin phone's name at the time. */
+  done_by_name: z.string().max(60),
+  donated: z.number().int().nonnegative(),
+  picked_up: z.number().int().nonnegative(),
+  removed: z.number().int().nonnegative(),
+  /** The run that did it: how a pending archive is known to be a finished clear-out's. */
+  run: z.string().regex(CLEAR_OUT_RUN).optional(),
+});
+
 export const itemsFileSchema = z.looseObject({
   version: z.literal(1),
   next_number: z.number().int().positive(),
   /**
    * The clear-out this list started after: the date it counted for (the date
-   * it was due on, after any move, YYYY-MM-DD) and when it actually ran.
+   * it was due on, after any move, YYYY-MM-DD), when it actually ran, and
+   * the run (see archives.ts).
    */
-  last_clear_out: z.looseObject({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), done_at: moment }).nullable(),
+  last_clear_out: z.looseObject({ date: day, done_at: moment, run: z.string().regex(CLEAR_OUT_RUN).optional() }).nullable(),
+  /** Every clear-out so far, oldest first. Each one carries the list forward to the next. */
+  clear_outs: z.array(clearOutSummarySchema).optional(),
   items: z.array(itemSchema),
 });
 
 export type Claim = z.infer<typeof claimSchema>;
 export type Item = z.infer<typeof itemSchema>;
 export type ItemsFile = z.infer<typeof itemsFileSchema>;
+export type ClearOutSummary = z.infer<typeof clearOutSummarySchema>;
 
 export function emptyItemsFile(): ItemsFile {
   return { version: 1, next_number: 1, last_clear_out: null, items: [] };

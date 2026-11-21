@@ -1,9 +1,10 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   assertValidKey,
   assertValidPrefix,
+  type ListedObject,
   type ObjectStore,
   type PutOptions,
   type PutResult,
@@ -53,6 +54,33 @@ export function localObjectStore(rootDir: string): ObjectStore {
     return { body: new Uint8Array(body), etag: etagOf(body) };
   }
 
+  async function listObjects(prefix: string): Promise<ListedObject[]> {
+    assertValidPrefix(prefix);
+    const objects: ListedObject[] = [];
+    async function walk(dir: string, keyPrefix: string): Promise<void> {
+      let entries;
+      try {
+        entries = await readdir(dir, { withFileTypes: true });
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
+        throw error;
+      }
+      for (const entry of entries) {
+        if (entry.name.endsWith(".tmp")) continue;
+        const key = keyPrefix + entry.name;
+        const file = path.join(dir, entry.name);
+        if (entry.isDirectory()) await walk(file, key + "/");
+        else if (key.startsWith(prefix)) {
+          // A file deleted since the directory was read just isn't listed.
+          const info = await stat(file).catch(() => null);
+          if (info) objects.push({ key, modified: info.mtime });
+        }
+      }
+    }
+    await walk(root, "");
+    return objects;
+  }
+
   return {
     get: readObject,
 
@@ -81,26 +109,10 @@ export function localObjectStore(rootDir: string): ObjectStore {
     },
 
     async list(prefix: string): Promise<string[]> {
-      assertValidPrefix(prefix);
-      const keys: string[] = [];
-      async function walk(dir: string, keyPrefix: string): Promise<void> {
-        let entries;
-        try {
-          entries = await readdir(dir, { withFileTypes: true });
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
-          throw error;
-        }
-        for (const entry of entries) {
-          if (entry.name.endsWith(".tmp")) continue;
-          const key = keyPrefix + entry.name;
-          if (entry.isDirectory()) await walk(path.join(dir, entry.name), key + "/");
-          else if (key.startsWith(prefix)) keys.push(key);
-        }
-      }
-      await walk(root, "");
-      return keys;
+      return (await listObjects(prefix)).map((object) => object.key);
     },
+
+    listObjects,
   };
 }
 

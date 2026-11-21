@@ -88,16 +88,24 @@ export async function changeTagsAction(itemId: unknown, tags: unknown): Promise<
   if (!visitor) return { ok: false, message: NO_CODE };
   if (typeof itemId !== "string" || !ITEM_ID.test(itemId)) return { ok: false, message: GONE };
   const { type, color, has_name } = (typeof tags === "object" && tags ? tags : {}) as Record<string, unknown>;
-  if (typeof type !== "string" || !activeTypes(visitor.settings).includes(type)) return { ok: false, message: "Pick a type from the list." };
-  if (typeof color !== "string" || !activeColors(visitor.settings).some((c) => c.name === color)) return { ok: false, message: "Pick a color from the list." };
+  if (typeof type !== "string" || typeof color !== "string") return { ok: false, message: "Pick a type and a color from the lists." };
   if (typeof has_name !== "boolean") return { ok: false, message: "Say whether it has a name." };
+  // A type or color an admin has hidden is only allowed on an item that already has it.
+  const typeOffered = activeTypes(visitor.settings).includes(type);
+  const colorOffered = activeColors(visitor.settings).some((c) => c.name === color);
   const deps = await getDeps();
   return orBusy(async () => {
-    const outcome = await changeItems<TagChange>(deps, (file) => {
+    const outcome = await changeItems<TagChange | { ok: false; reason: "type" | "color" }>(deps, (file) => {
+      const item = file.items.find((i) => i.id === itemId);
+      if (item && !typeOffered && item.type !== type) return { result: { ok: false, reason: "type" } };
+      if (item && !colorOffered && item.color !== color) return { result: { ok: false, reason: "color" } };
       const result = changeTags(file, { itemId, phoneId: visitor.phoneId, tags: { type, color, has_name } }, deps.now());
       return result.ok && result.changed ? { value: file, result } : { result };
     });
-    if (!outcome.ok) return { ok: false, message: GONE };
+    if (!outcome.ok) {
+      const messages = { gone: GONE, type: "Pick a type from the list.", color: "Pick a color from the list." };
+      return { ok: false, message: messages[outcome.reason] };
+    }
     if (outcome.changed) {
       await logActivity(deps, {
         actor: visitor.phoneId,

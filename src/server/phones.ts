@@ -3,6 +3,7 @@ import { z } from "zod";
 import { normalizeCode } from "@/server/codes";
 import { HEX32 } from "@/server/cookies";
 import type { Deps } from "@/server/deps";
+import { forEachLimited } from "@/server/pool";
 import type { Settings } from "@/server/settings";
 
 /**
@@ -121,4 +122,26 @@ export async function touchDevice(deps: Deps, device: Device): Promise<void> {
   await deps.docs.update(deviceKey(device.id), deviceSchema, (current) =>
     current && due(current.last_seen_at) ? { value: { ...current, last_seen_at: now.toISOString() }, result: undefined } : { result: undefined },
   );
+}
+
+const YEAR_MS = 365 * DAY_MS;
+
+/**
+ * Deletes the files of phones not seen in a year (spec: *Retention*); the
+ * clear-out runs it. A phone in use rewrites its file at least once a day,
+ * so only files last written over a year ago are read to check.
+ */
+export async function forgetOldPhones(deps: Deps): Promise<number> {
+  const cutoff = deps.now().getTime() - YEAR_MS;
+  const stale = (await deps.store.listObjects("devices/")).filter((object) => object.modified.getTime() < cutoff);
+  let forgotten = 0;
+  await forEachLimited(stale, 8, async ({ key }) => {
+    const id = /^devices\/([0-9a-f]{32})\.json$/.exec(key)?.[1];
+    if (!id) return;
+    const device = await getDevice(deps, id).catch(() => null);
+    if (!device || Date.parse(device.last_seen_at) >= cutoff) return;
+    await deps.store.delete(key);
+    forgotten++;
+  });
+  return forgotten;
 }

@@ -7,10 +7,10 @@ import { UndoClaimForm } from "@/components/admin/UndoClaimForm";
 import { AdminItemTags } from "@/components/admin/AdminItemTags";
 import { adminItemView, itemActorIds, phoneNames } from "@/server/admin-views";
 import { getDeps } from "@/server/deps";
-import { ITEM_ID, loadItems, sweepReplacedPhotos } from "@/server/items";
+import { ITEM_ID, loadItems } from "@/server/items";
 import { requireAdmin } from "@/server/session";
-import { after } from "next/server";
-import { activeColors, activeTypes, swatchFor } from "@/server/views";
+import { tidyAfterAdminPage } from "@/server/tidy";
+import { swatchFor, tagChoices } from "@/server/views";
 
 export const metadata: Metadata = { title: "Item · Admin · Lost & Found" };
 
@@ -22,8 +22,8 @@ export default async function AdminItemPage({ params }: PageProps<"/admin/items/
   const deps = await getDeps();
   const file = await loadItems(deps, { fresh: true });
   const item = file.items.find((i) => i.id === id);
-  // Old photos whose Undo time is over go now, not whenever the list is next saved.
-  after(() => sweepReplacedPhotos(deps).catch((error) => console.error("Couldn't sweep replaced photos", error)));
+  // Old photos go now, not whenever the list is next saved; leftovers from a clear-out are retried.
+  tidyAfterAdminPage(deps);
   if (!item) notFound();
   const names = await phoneNames(deps, itemActorIds(item));
   const view = adminItemView(item, names, deps.now());
@@ -48,8 +48,7 @@ export default async function AdminItemPage({ params }: PageProps<"/admin/items/
         key={`${view.id}-${view.type}-${view.color}-${view.hasName}`}
         itemId={onList ? view.id : null}
         initial={{ type: view.type, color: view.color, hasName: view.hasName }}
-        types={activeTypes(settings)}
-        colors={activeColors(settings)}
+        {...tagChoices(settings, view)}
         palette={Object.fromEntries(settings.colors.map((c) => [c.name, swatchFor(settings, c.name)]))}
       />
 

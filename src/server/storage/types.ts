@@ -19,6 +19,12 @@ export type PutCondition = { ifMatch: string } | { ifNoneMatch: "*" };
 
 export type PutResult = { ok: true; etag: string } | { ok: false; reason: "conflict" };
 
+/** A key in a listing, with when its object was last written. */
+export interface ListedObject {
+  key: string;
+  modified: Date;
+}
+
 export interface PutOptions {
   contentType?: string;
   cacheControl?: string;
@@ -38,6 +44,8 @@ export interface ObjectStore {
   delete(key: string): Promise<void>;
   /** Every key that starts with `prefix`, in no particular order. */
   list(prefix: string): Promise<string[]>;
+  /** The same, with when each object was last written. */
+  listObjects(prefix: string): Promise<ListedObject[]>;
 }
 
 const KEY_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9._-]*(\/[A-Za-z0-9_][A-Za-z0-9._-]*)*$/;

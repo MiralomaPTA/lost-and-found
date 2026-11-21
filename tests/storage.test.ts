@@ -70,6 +70,16 @@ describe("local object store", () => {
     ]);
   });
 
+  it("lists objects with when each was last written", async () => {
+    const before = Date.now() - 1000;
+    await store.put("photos/abc.jpg", encode("x"));
+    await store.put("items.json", encode("{}"));
+    const listed = await store.listObjects("photos/");
+    expect(listed.map((object) => object.key)).toEqual(["photos/abc.jpg"]);
+    expect(listed[0].modified.getTime()).toBeGreaterThan(before);
+    expect(listed[0].modified.getTime()).toBeLessThanOrEqual(Date.now() + 1000);
+  });
+
   it("deletes, and deleting a missing key is fine", async () => {
     await store.put("items.json", encode("{}"));
     await store.delete("items.json");
